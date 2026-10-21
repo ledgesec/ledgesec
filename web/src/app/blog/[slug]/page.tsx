@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { findPost } from "@/pages/blog/posts";
-import { BlogPost } from "@/pages/blog/ui/blog-post";
+import { findPost } from "@/fsd/pages/blog/posts";
+import { BlogPost } from "@/fsd/pages/blog/ui/blog-post";
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

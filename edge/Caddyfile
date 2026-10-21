@@ -8,10 +8,19 @@ ledgesec.com, www.ledgesec.com {
 	handle /edge-health {
 		respond "ok" 200
 	}
+	handle {
+		reverse_proxy web:8080
+	}
+}
+
+dash.ledgesec.com {
+	handle /edge-health {
+		respond "ok" 200
+	}
 	handle_path /api/* {
 		reverse_proxy api:8080
 	}
 	handle {
-		reverse_proxy cabinet:8080
+		reverse_proxy web:8080
 	}
 }

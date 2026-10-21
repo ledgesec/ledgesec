@@ -57,6 +57,9 @@ services:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set CLICKHOUSE_PASSWORD}
       CLICKHOUSE_DB: ledgesec
       LEDGESEC_INGEST_SECRET: ${LEDGESEC_INGEST_SECRET:-}
+      LEDGESEC_SESSION_SECRET: ${LEDGESEC_SESSION_SECRET:-}
+      LEDGESEC_ADMIN_EMAIL: ${LEDGESEC_ADMIN_EMAIL:-}
+      LEDGESEC_ADMIN_PASSWORD: ${LEDGESEC_ADMIN_PASSWORD:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,13 +72,17 @@ services:
       retries: 20
     restart: unless-stopped
 
-  cabinet:
-    build: ./cabinet
+  web:
+    build: ./web
+    environment:
+      PORT: "8080"
+      HOSTNAME: 0.0.0.0
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 5s
-      timeout: 3s
-      retries: 20
+      timeout: 5s
+      retries: 30
+      start_period: 25s
     restart: unless-stopped
 
   edge:
@@ -92,7 +99,7 @@ services:
     depends_on:
       api:
         condition: service_healthy
-      cabinet:
+      web:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/edge-health"]

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Post } from "@/pages/blog/posts";
+import type { Post } from "@/fsd/pages/blog/posts";
 import { SiteHeader } from "@/widgets/site-header/ui/site-header";
 
 export function BlogPost({ host, post }: { host: string; post: Post }) {

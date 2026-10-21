@@ -6,25 +6,26 @@
 | --- | --- |
 | `edge/` | Caddy нашего края. Первая поставка: два сервера, порт 443 только здесь. |
 | `api/` | Учёт сайтов, сертификаты, снимок, чтение журнала. На путь посетителя не встаёт. |
-| `cabinet/` | Кабинет. Роль берётся из сессии. |
+| `web/` | Сайт, блог и дашборд. Одна тема. |
 | `packages/customer-gate/` | Lua на OpenResty заказчика. Без пропуска отправляет браузер на край. Для тех, кто не меняет A. В кабинет v1 не входит. |
 
 Angie и Caddy появятся своими пакетами, когда до них дойдёт заказчик. Пока их нет.
 
 ## Платформа
 
-Европейская машина поднимает один `docker-compose.yml`: Postgres, ClickHouse, API, кабинет и край. Схема баз зашита в их образы, отдельный bind-mount для SQL не нужен. Coolify в России только выкладывает этот файл по SSH. Нью-йоркская машина в файл не входит и в панель не добавляется.
+Европейская машина поднимает один `docker-compose.yml`: Postgres, ClickHouse, API, сайт и край. Схема баз зашита в их образы, отдельный bind-mount для SQL не нужен. Coolify в России выкладывает этот файл по SSH. Нью-йоркская машина в этот файл не входит.
 
 В Coolify:
 
 1. Ресурс из Git, build pack Docker Compose, файл `docker-compose.yml` в корне.
 2. Advanced → Docker compose → Compose deployment: Raw (deploy file as-is). Иначе панель допишет свой прокси.
 3. На европейском сервере прокси: Custom (None). Домен у ресурса не задавать. 80 и 443 публикует только сервис `edge`, это Caddy, не прокси панели.
-4. В переменных задать `POSTGRES_PASSWORD` и `CLICKHOUSE_PASSWORD`. `EDGE_HTTP_PORT` и `EDGE_HTTPS_PORT` на сервере не задавать: край займёт 80 и 443.
+4. В переменных задать `POSTGRES_PASSWORD` и `CLICKHOUSE_PASSWORD`. Для дашборда ещё `LEDGESEC_ADMIN_EMAIL`, `LEDGESEC_ADMIN_PASSWORD` (не короче 12 знаков) и `LEDGESEC_SESSION_SECRET`. `EDGE_HTTP_PORT` и `EDGE_HTTPS_PORT` на сервере не задавать: край займёт 80 и 443.
+5. Запись DNS `dash` — A на европейский адрес, тот же, что у `ledgesec.com`. Пока её нет, сертификат для дашборда не выпустится. Домен в Coolify не добавлять.
 
 Postgres и ClickHouse в хостовые порты не выведены. Локально скопируй `.env.example` в `.env`.
 
-Нью-йоркская машина поднимает только `docker-compose.us.yml`. В Coolify её нет. На этой машине:
+Нью-йоркская машина поднимает только `docker-compose.us.yml`, отдельным ресурсом. Базы, сайт и дашборд туда не входят. На этой машине:
 
 ```bash
 docker compose -p ledgesec-us -f docker-compose.us.yml up --build -d
