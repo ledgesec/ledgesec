@@ -1,12 +1,12 @@
 ---
-description: Интерфейс Ledgesec на shadcn/ui и Feature-Sliced Design.
-globs: cabinet/**/*.{tsx,ts,jsx,js,css,html}
+description: Интерфейс Ledgesec на Next.js, shadcn/ui и Feature-Sliced Design.
+globs: "**/*.{tsx,ts,css}"
 alwaysApply: false
 ---
 
 # Интерфейс
 
-Сайт, блог и дашборд собираются на React, TypeScript, Tailwind и shadcn/ui.
+Сайт, блог и дашборд — одно приложение Next.js, TypeScript, Tailwind и shadcn/ui.
 
 - Кнопки, поля, диалоги, меню и таблицы брать из shadcn. Свои примитивы не рисовать.
 - Вторую библиотеку компонентов не подключать.
@@ -14,7 +14,9 @@ alwaysApply: false
 - Зонд на дашборде виден без чтения подписи: отдельная метка и выделение строки.
 - Адрес посетителя не появляется на сайте, в блоге и у пользователя сайта.
 
-FSD. Слои сверху вниз: `app`, `pages`, `widgets`, `features`, `entities`, `shared`. Импорт только вниз. Соседние фичи друг друга не импортируют. `shared` не знает про вход и журнал.
+FSD. Слои сверху вниз: `pages`, `widgets`, `features`, `entities`, `shared`. Импорт только вниз. Соседние фичи друг друга не импортируют. `shared` не знает про вход и журнал.
+
+Каталог `app/` в Next.js — только маршруты. Страница оттуда вызывает слой `pages` и больше ничего. Слайсы лежат рядом, не внутри `app/`.
 
 - `pages` — сайт, блог, дашборд.
 - `widgets` — панель адресов и список запросов.
@@ -22,4 +24,4 @@ FSD. Слои сверху вниз: `app`, `pages`, `widgets`, `features`, `ent
 - `entities` — наблюдение, адрес, пользователь.
 - `shared/ui` — компоненты shadcn.
 
-Python API, Caddy и Lua в эти слои не раскладывать.
+FastAPI, Caddy и Lua в эти слои не раскладывать.

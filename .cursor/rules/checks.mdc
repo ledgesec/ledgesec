@@ -16,7 +16,7 @@ alwaysApply: true
 Линтеры, только по затронутому языку:
 
 - Rust: `cargo clippy -p ledgesec-gate --all-targets -- -D warnings`
-- Python: `ruff check api`
-- React и TypeScript: `eslint` из каталога интерфейса, без отдельного стилевого пакета.
+- Python и FastAPI: `ruff check` и `pytest` в каталоге API. Второй тестовый прогонщик для Python не добавлять.
+- Next.js: `eslint` из каталога приложения, без отдельного стилевого пакета.
 
 Замечание линтера не глушить на весь файл. Подавление, если без него нельзя, стоит на одной строке и называет причину.
