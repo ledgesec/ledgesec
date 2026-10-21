@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ledgesec</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; background: #f3efe6; color: #1d1a16; font: 18px/1.5 Georgia, "Iowan Old Style", serif; }
+  main { max-width: 38rem; margin: 0 auto; padding: 4rem 1.25rem; }
+  p.kicker { letter-spacing: .08em; text-transform: uppercase; font: 12px/1.4 ui-sans-serif, system-ui, sans-serif; color: #6b6256; }
+  h1 { font-weight: 500; font-size: 2rem; line-height: 1.2; margin: 0 0 1rem; }
+  code { font: 14px/1.4 ui-monospace, monospace; }
+  .down { color: #8a3a2a; }
+</style>
+<main>
+  <p class="kicker">Ledgesec · cabinet</p>
+  <h1>No sites are connected.</h1>
+  <p id="status">Asking the API whether Postgres and ClickHouse are up.</p>
+  <p id="sites"></p>
+</main>
+<script>
+const status = document.getElementById("status");
+const sites = document.getElementById("sites");
+
+fetch("/api/health")
+  .then((response) => response.json().then((body) => ({ ok: response.ok, body })))
+  .then(({ ok, body }) => {
+    if (ok) {
+      status.textContent = "Postgres and ClickHouse answered. The edge reached the API.";
+      return;
+    }
+    status.className = "down";
+    status.textContent = "The API is up, and a database did not answer: " + JSON.stringify(body);
+  })
+  .catch(() => {
+    status.className = "down";
+    status.textContent = "The API did not answer through the edge.";
+  });
+
+fetch("/api/v1/sites")
+  .then((response) => response.json())
+  .then((body) => {
+    const rows = body.sites || [];
+    sites.textContent = rows.length === 0
+      ? "The site list is empty. A domain and an origin are added before any visitor is proxied."
+      : rows.map((site) => site.domain).join(", ");
+  })
+  .catch(() => {});
+</script>

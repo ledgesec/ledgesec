@@ -1,0 +1,45 @@
+CREATE TABLE IF NOT EXISTS ledgesec.events (
+    ts DateTime64(3, 'UTC'),
+    site_id LowCardinality(String),
+    edge_id LowCardinality(String),
+    decision LowCardinality(String),
+    reason LowCardinality(String),
+    policy_version UInt32,
+    snapshot_gen UInt64,
+    snapshot_age_ms UInt32,
+    route_group LowCardinality(String),
+    path String,
+    ip IPv6,
+    had_session UInt8,
+    client_class LowCardinality(String),
+    ja4 String,
+    sampled UInt8
+)
+ENGINE = MergeTree
+PARTITION BY toYYYYMMDD(ts)
+ORDER BY (site_id, ts)
+TTL toDateTime(ts) + INTERVAL 30 DAY;
+
+CREATE TABLE IF NOT EXISTS ledgesec.events_minute (
+    minute DateTime('UTC'),
+    site_id LowCardinality(String),
+    decision LowCardinality(String),
+    reason LowCardinality(String),
+    rows UInt64
+)
+ENGINE = SummingMergeTree
+PARTITION BY toYYYYMM(minute)
+ORDER BY (site_id, minute, decision, reason)
+TTL minute + INTERVAL 180 DAY;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS ledgesec.events_minute_mv
+TO ledgesec.events_minute
+AS
+SELECT
+    toStartOfMinute(ts) AS minute,
+    site_id,
+    decision,
+    reason,
+    count() AS rows
+FROM ledgesec.events
+GROUP BY minute, site_id, decision, reason;

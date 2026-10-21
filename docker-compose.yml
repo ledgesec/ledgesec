@@ -1,0 +1,102 @@
+# EU platform. Coolify in Russia deploys this file over SSH.
+# Server proxy: Custom (None). Resource: Raw compose, no Coolify domain.
+# OpenResty owns host ports 80 and 443. Databases publish none.
+# The New York edge is not in this file.
+
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: deploy/postgres/Dockerfile
+    environment:
+      POSTGRES_USER: ledgesec
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ledgesec
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledgesec -d ledgesec"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  clickhouse:
+    build:
+      context: .
+      dockerfile: deploy/clickhouse/Dockerfile
+    environment:
+      CLICKHOUSE_USER: ledgesec
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DB: ledgesec
+    volumes:
+      - clickhouse:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--user", "ledgesec", "--password", "${CLICKHOUSE_PASSWORD}", "--query", "SELECT 1 FROM ledgesec.events LIMIT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+  api:
+    build: ./api
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ledgesec
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      PGDATABASE: ledgesec
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_USER: ledgesec
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DB: ledgesec
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  cabinet:
+    build: ./cabinet
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  edge:
+    build: ./edge
+    ports:
+      - "${EDGE_HTTP_PORT:-80}:80"
+      - "${EDGE_HTTPS_PORT:-443}:443"
+    volumes:
+      - edge_certs:/etc/ledgesec/tls
+    depends_on:
+      api:
+        condition: service_healthy
+      cabinet:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/edge-health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  postgres:
+  clickhouse:
+  edge_certs:
