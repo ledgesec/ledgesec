@@ -1,11 +1,11 @@
 import os
+from pathlib import Path
 from urllib.parse import quote_plus
 
-from sqlalchemy import create_engine, text
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
-
-from app.access.models import Site, User
-from app.edge.models import CertState
 
 
 def database_url() -> str:
@@ -34,8 +34,27 @@ def postgres_ready() -> None:
         conn.execute(text("SELECT 1"))
 
 
-def ensure_users() -> None:
-    if Site.__tablename__ != "sites" or CertState.__tablename__ != "cert_state":
-        raise RuntimeError("postgres mapping does not match the schema")
-    User.__table__.create(engine, checkfirst=True)
+BASELINE = "0001"
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def alembic_config() -> Config:
+    cfg = Config(str(ROOT / "alembic.ini"))
+    cfg.set_main_option("script_location", str(ROOT / "migrations"))
+    cfg.set_main_option("sqlalchemy.url", database_url().replace("%", "%%"))
+    return cfg
+
+
+def should_stamp_baseline(table_names: set[str]) -> bool:
+    present = {"sites", "users", "cert_state"} <= table_names
+    return present and "alembic_version" not in table_names
+
+
+def migrate() -> None:
+    cfg = alembic_config()
+    with engine.connect() as connection:
+        names = set(inspect(connection).get_table_names())
+    if should_stamp_baseline(names):
+        command.stamp(cfg, BASELINE)
+    command.upgrade(cfg, "head")
 

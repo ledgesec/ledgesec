@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.db import ensure_users
+from app.db import migrate
 from app.errors import ApiError
 from app.http.access import router as access_router
 from app.http.health import router as health_router
@@ -16,7 +16,7 @@ def wait_for_users() -> None:
     last: Exception | None = None
     for _ in range(20):
         try:
-            ensure_users()
+            migrate()
             return
         except Exception as exc:  # noqa: BLE001 — postgres may still be starting
             last = exc

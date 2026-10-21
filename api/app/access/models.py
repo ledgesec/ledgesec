@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Text, func
+from sqlalchemy import Boolean, DateTime, Text, func, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.orm import Base
@@ -24,7 +24,7 @@ class Site(Base):
     domain: Mapped[str] = mapped_column(Text, unique=True)
     origin_url: Mapped[str] = mapped_column(Text)
     origin_host: Mapped[str] = mapped_column(Text)
-    origin_tls: Mapped[bool] = mapped_column(Boolean, default=True)
-    verify_origin_tls: Mapped[bool] = mapped_column(Boolean, default=True)
-    dry_run: Mapped[bool] = mapped_column(Boolean, default=True)
+    origin_tls: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
+    verify_origin_tls: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
+    dry_run: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
