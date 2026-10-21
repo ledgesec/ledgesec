@@ -1,0 +1,18 @@
+http://127.0.0.1 {
+	handle /edge-health {
+		respond "ok" 200
+	}
+}
+
+us.ledgesec.com {
+	handle /edge-health {
+		respond "ok" 200
+	}
+	handle /.well-known/acme-challenge/* {
+		root * /var/cache/ledgesec
+		file_server
+	}
+	handle {
+		respond "Ledgesec edge, US East." 200
+	}
+}

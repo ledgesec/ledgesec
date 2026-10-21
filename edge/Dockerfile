@@ -1,7 +1,7 @@
-FROM openresty/openresty:1.27.1.2-alpine
-RUN apk add --no-cache openssl wget
-ARG NGINX_CONF=nginx.conf
-COPY ${NGINX_CONF} /usr/local/openresty/nginx/conf/nginx.conf
+FROM caddy:2.10.2-alpine
+RUN apk add --no-cache wget
+ARG CADDYFILE=Caddyfile
+COPY ${CADDYFILE} /etc/caddy/site.Caddyfile
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 EXPOSE 80 443

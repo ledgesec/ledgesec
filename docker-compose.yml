@@ -1,6 +1,6 @@
 # EU platform. Coolify in Russia deploys this file over SSH.
 # Server proxy: Custom (None). Resource: Raw compose, no Coolify domain.
-# OpenResty owns host ports 80 and 443. Databases publish none.
+# Caddy owns host ports 80 and 443. Databases publish none.
 # The New York edge is not in this file.
 
 services:
@@ -79,11 +79,15 @@ services:
 
   edge:
     build: ./edge
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:-shmidtelson@gmail.com}
+      CADDY_LOCAL_CERTS: ${CADDY_LOCAL_CERTS:-}
     ports:
       - "${EDGE_HTTP_PORT:-80}:80"
       - "${EDGE_HTTPS_PORT:-443}:443"
     volumes:
-      - edge_certs:/etc/ledgesec/tls
+      - caddy_data:/data
+      - caddy_config:/config
     depends_on:
       api:
         condition: service_healthy
@@ -99,4 +103,5 @@ services:
 volumes:
   postgres:
   clickhouse:
-  edge_certs:
+  caddy_data:
+  caddy_config:

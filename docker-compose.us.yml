@@ -2,6 +2,7 @@
 # No Postgres, no ClickHouse, no cabinet, no API. The edge pulls a snapshot later.
 # Always pass -p ledgesec-us so a European COMPOSE_PROJECT_NAME cannot capture this file.
 # Publish 80 and 443 here. Leave US_EDGE_HTTP_PORT and US_EDGE_HTTPS_PORT unset.
+# Leave CADDY_LOCAL_CERTS unset so Caddy obtains a certificate for us.ledgesec.com.
 
 name: ledgesec-us
 
@@ -10,14 +11,16 @@ services:
     build:
       context: ./edge
       args:
-        NGINX_CONF: nginx.us.conf
+        CADDYFILE: Caddyfile.us
     environment:
-      CERT_CN: us.ledgesec.com
+      ACME_EMAIL: ${ACME_EMAIL:-shmidtelson@gmail.com}
+      CADDY_LOCAL_CERTS: ${CADDY_LOCAL_CERTS:-}
     ports:
       - "${US_EDGE_HTTP_PORT:-80}:80"
       - "${US_EDGE_HTTPS_PORT:-443}:443"
     volumes:
-      - edge_certs:/etc/ledgesec/tls
+      - caddy_data:/data
+      - caddy_config:/config
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/edge-health"]
       interval: 5s
@@ -26,4 +29,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  edge_certs:
+  caddy_data:
+  caddy_config:
