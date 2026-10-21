@@ -1,26 +1,26 @@
-# Customer OpenResty. The application is the proxy_pass behind this block.
-# Undecided document requests redirect to the contour; they do not reach proxy_pass.
+# First customers. The request continues to the application.
+# log_by_lua only records a line and sends a batch to Ledgesec.
 # env must be in the main context or os.getenv never sees the secret.
-env LEDGESEC_SECRET;
+env LEDGESEC_INGEST_SECRET;
+env LEDGESEC_SITE_ID;
+env LEDGESEC_CONTOUR;
 
 http {
     lua_package_path "/opt/ledgesec/module/?.lua;;";
+    lua_shared_dict ledgesec_observe 8m;
 
     server {
         listen 443 ssl;
         server_name example.com;
         # ssl_certificate and ssl_certificate_key stay the customer's.
-        # This package does not replace the two A records of the DNS edge.
 
         location / {
-            access_by_lua_block {
-                local gate = require("ledgesec.gate")
-                gate.access({
-                    site_id = "SITE",
-                    secret = os.getenv("LEDGESEC_SECRET"),
-                    scheme = "https",
-                    host = "example.com",
-                    contour = "https://eu.ledgesec.com",
+            log_by_lua_block {
+                local observe = require("ledgesec.observe")
+                observe.note({
+                    site_id = os.getenv("LEDGESEC_SITE_ID"),
+                    secret = os.getenv("LEDGESEC_INGEST_SECRET"),
+                    contour = os.getenv("LEDGESEC_CONTOUR") or "https://ledgesec.com",
                 })
             }
             proxy_pass http://127.0.0.1:8080;

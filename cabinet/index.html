@@ -9,6 +9,7 @@
   main { max-width: 38rem; margin: 0 auto; padding: 4rem 1.25rem; }
   p.kicker { letter-spacing: .08em; text-transform: uppercase; font: 12px/1.4 ui-sans-serif, system-ui, sans-serif; color: #6b6256; }
   h1 { font-weight: 500; font-size: 2rem; line-height: 1.2; margin: 0 0 1rem; }
+  h2 { font-weight: 500; font-size: 1.25rem; margin: 2rem 0 .5rem; }
   code { font: 14px/1.4 ui-monospace, monospace; }
   .down { color: #8a3a2a; }
 </style>
@@ -17,6 +18,8 @@
   <h1>No sites are connected.</h1>
   <p id="status">Asking the API whether Postgres and ClickHouse are up.</p>
   <p id="sites"></p>
+  <h2>Observed requests</h2>
+  <p id="observed">Asking for the latest lines. Addresses are not shown here.</p>
 </main>
 <script>
 const status = document.getElementById("status");
@@ -46,4 +49,21 @@ fetch("/api/v1/sites")
       : rows.map((site) => site.domain).join(", ");
   })
   .catch(() => {});
+
+const observed = document.getElementById("observed");
+fetch("/api/v1/observations")
+  .then((response) => response.json())
+  .then((body) => {
+    const rows = body.observations || [];
+    if (rows.length === 0) {
+      observed.textContent = "No requests have been observed yet.";
+      return;
+    }
+    observed.textContent = rows.map((row) => row.ts + "  " + row.site_id + "  " + row.path).join("\n");
+    observed.style.whiteSpace = "pre-wrap";
+  })
+  .catch(() => {
+    observed.className = "down";
+    observed.textContent = "The observation list did not load.";
+  });
 </script>

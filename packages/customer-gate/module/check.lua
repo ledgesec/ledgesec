@@ -29,6 +29,19 @@ end
 local long = "/" .. string.rep("a", 161)
 assert(token.classify_name("GET", long, "", true) == "hold:waf")
 
+local observe = require("ledgesec.observe")
+local ev = observe.event({ path = "/pricing?utm=1", ts = 1000, ip = "203.0.113.10" })
+assert(ev.path == "/pricing")
+assert(ev.route_group == "document")
+assert(ev.ip == "203.0.113.10")
+assert(observe.event({ path = "/app.js", ts = 1, ip = "203.0.113.10" }).route_group == "asset")
+assert(observe.event({ path = "/.well-known/acme-challenge/tok", ts = 1 }) == nil)
+local long_query = "/a?" .. string.rep("q", 400)
+assert(#observe.clean_path(long_query) <= 160)
+local body = observe.body("demo", "module", { ev })
+assert(string.find(body, "utm", 1, true) == nil)
+assert(observe.mac("ingest-secret", body) == token.hex_hmac("ingest-secret", body))
+
 io.write("HANDOFF " .. token.handoff_token(
   "test-secret", "demo", "127.0.0.1:44721", "/pricing", "utm=1", "203.0.113.10", 2000000000, "n0nce"
 ) .. "\n")
