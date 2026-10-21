@@ -58,8 +58,6 @@ services:
       CLICKHOUSE_DB: ledgesec
       LEDGESEC_INGEST_SECRET: ${LEDGESEC_INGEST_SECRET:-}
       LEDGESEC_SESSION_SECRET: ${LEDGESEC_SESSION_SECRET:-}
-      LEDGESEC_ADMIN_EMAIL: ${LEDGESEC_ADMIN_EMAIL:-}
-      LEDGESEC_ADMIN_PASSWORD: ${LEDGESEC_ADMIN_PASSWORD:-}
     depends_on:
       postgres:
         condition: service_healthy

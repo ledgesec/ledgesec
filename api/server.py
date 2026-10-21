@@ -260,27 +260,12 @@ def ensure_schema():
         conn.commit()
 
 
-def bootstrap_admin():
-    email = os.environ.get("LEDGESEC_ADMIN_EMAIL", "").strip().lower()
-    password = os.environ.get("LEDGESEC_ADMIN_PASSWORD", "")
+def new_admin(email, password):
+    email = str(email or "").strip().lower()
+    password = str(password or "")
     if not EMAIL.match(email) or len(password) < 12:
-        return
-    digest = hash_password(password)
-    with pg() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id FROM users WHERE email = %s", (email,))
-            row = cur.fetchone()
-            if row is None:
-                cur.execute(
-                    "INSERT INTO users (id, email, password_hash, role, site_id) VALUES (%s, %s, %s, 'admin', NULL)",
-                    (secrets.token_hex(8), email, digest),
-                )
-            else:
-                cur.execute(
-                    "UPDATE users SET password_hash = %s, role = 'admin' WHERE email = %s",
-                    (digest, email),
-                )
-        conn.commit()
+        raise ValueError("bad_admin")
+    return secrets.token_hex(8), email, hash_password(password)
 
 
 def user_public(row):
@@ -593,7 +578,6 @@ def prepare():
     for _ in range(20):
         try:
             ensure_schema()
-            bootstrap_admin()
             return
         except Exception as exc:
             last = exc
