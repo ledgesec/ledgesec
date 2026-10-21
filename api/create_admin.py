@@ -4,7 +4,11 @@
 import getpass
 import sys
 
-from server import new_admin, pg
+from sqlalchemy import select
+
+from app.access.models import User
+from app.access.passwords import new_admin
+from app.db import SessionLocal
 
 
 def read_password():
@@ -20,16 +24,12 @@ def main():
         user_id, email, digest = new_admin(sys.argv[1], read_password())
     except ValueError:
         raise SystemExit("email or password was refused")
-    with pg() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id FROM users WHERE email = %s", (email,))
-            if cur.fetchone() is not None:
-                raise SystemExit("that email is already in the database")
-            cur.execute(
-                "INSERT INTO users (id, email, password_hash, role, site_id) VALUES (%s, %s, %s, 'admin', NULL)",
-                (user_id, email, digest),
-            )
-        conn.commit()
+    with SessionLocal() as session:
+        existing = session.scalar(select(User.id).where(User.email == email))
+        if existing is not None:
+            raise SystemExit("that email is already in the database")
+        session.add(User(id=user_id, email=email, password_hash=digest, role="admin"))
+        session.commit()
     print("admin written")
 
 

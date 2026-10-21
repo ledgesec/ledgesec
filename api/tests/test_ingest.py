@@ -1,0 +1,77 @@
+import hashlib
+import hmac
+import json
+from datetime import UTC, datetime, timedelta
+
+import pytest
+
+from app.observation.ingest import accept_batch, to_ipv6
+from app.observation.journal import show_ip
+
+
+def batch(events, site_id="demo", edge_id="eu"):
+    return json.dumps({"site_id": site_id, "edge_id": edge_id, "events": events}).encode()
+
+
+def mac_for(secret, body):
+    return hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+
+
+def test_accept_strips_the_query_and_stores_an_observe_line(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_INGEST_SECRET", "secret")
+    now_ms = int(datetime.now(UTC).timestamp() * 1000)
+    body = batch(
+        [
+            {
+                "ts": now_ms,
+                "path": "/.env?x=1\n",
+                "ip": "203.0.113.10",
+                "route_group": "nope",
+            }
+        ]
+    )
+    lines = accept_batch(mac_for("secret", body), body)
+    assert len(lines) == 1
+    row = json.loads(lines[0])
+    assert row["path"] == "/.env"
+    assert row["ip"] == "::ffff:203.0.113.10"
+    assert row["route_group"] == "document"
+    assert row["decision"] == "allow"
+    assert row["reason"] == "observe"
+    assert row["site_id"] == "demo"
+    assert row["edge_id"] == "eu"
+
+
+def test_bad_mac_is_refused(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_INGEST_SECRET", "secret")
+    body = batch([{"ts": 1, "path": "/"}])
+    with pytest.raises(PermissionError, match="bad_mac"):
+        accept_batch("ab" * 32, body)
+
+
+def test_ingest_without_a_secret_is_disabled(monkeypatch):
+    monkeypatch.delenv("LEDGESEC_INGEST_SECRET", raising=False)
+    with pytest.raises(PermissionError, match="ingest_disabled"):
+        accept_batch("aa", b"{}")
+
+
+def test_stale_and_huge_paths_are_dropped(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_INGEST_SECRET", "secret")
+    stale = int((datetime.now(UTC) - timedelta(days=3)).timestamp() * 1000)
+    body = batch([{"ts": stale, "path": "/"}, {"ts": stale, "path": "/" + ("a" * 200)}])
+    assert accept_batch(mac_for("secret", body), body) == []
+
+
+def test_a_bad_site_is_rejected(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_INGEST_SECRET", "secret")
+    body = batch([{"ts": 1, "path": "/"}], site_id="bad site")
+    with pytest.raises(ValueError):
+        accept_batch(mac_for("secret", body), body)
+
+
+def test_ipv6_mapping_and_display():
+    assert to_ipv6("203.0.113.10") == "::ffff:203.0.113.10"
+    assert to_ipv6("not-an-ip") == "::"
+    assert show_ip("::ffff:203.0.113.10") == "203.0.113.10"
+    assert show_ip("::") == ""
+    assert show_ip("2001:db8::1") == "2001:db8::1"

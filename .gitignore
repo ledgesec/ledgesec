@@ -1,3 +1,5 @@
 target/
 agent-tools/
 .env
+__pycache__/
+*.pyc
