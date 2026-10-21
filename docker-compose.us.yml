@@ -1,0 +1,29 @@
+# New York edge only. Do not give this file to Coolify.
+# No Postgres, no ClickHouse, no cabinet, no API. The edge pulls a snapshot later.
+# Always pass -p ledgesec-us so a European COMPOSE_PROJECT_NAME cannot capture this file.
+# Publish 80 and 443 here. Leave US_EDGE_HTTP_PORT and US_EDGE_HTTPS_PORT unset.
+
+name: ledgesec-us
+
+services:
+  edge:
+    build:
+      context: ./edge
+      args:
+        NGINX_CONF: nginx.us.conf
+    environment:
+      CERT_CN: us.ledgesec.com
+    ports:
+      - "${US_EDGE_HTTP_PORT:-80}:80"
+      - "${US_EDGE_HTTPS_PORT:-443}:443"
+    volumes:
+      - edge_certs:/etc/ledgesec/tls
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/edge-health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  edge_certs:

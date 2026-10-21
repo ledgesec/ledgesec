@@ -24,6 +24,12 @@ Angie и Caddy появятся своими пакетами, когда до �
 
 Postgres и ClickHouse в хостовые порты не выведены. Локально скопируй `.env.example` в `.env`.
 
+Нью-йоркская машина поднимает только `docker-compose.us.yml`. В Coolify её нет. На этой машине:
+
+```bash
+docker compose -p ledgesec-us -f docker-compose.us.yml up --build -d
+```
+
 ```bash
 docker compose up --build
 ```

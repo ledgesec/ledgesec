@@ -6,7 +6,7 @@ if [ ! -s /etc/ledgesec/tls/fullchain.pem ] || [ ! -s /etc/ledgesec/tls/privkey.
     openssl req -x509 -newkey rsa:2048 \
         -keyout /etc/ledgesec/tls/privkey.pem \
         -out /etc/ledgesec/tls/fullchain.pem \
-        -days 2 -nodes -subj "/CN=ledgesec.com"
+        -days 2 -nodes -subj "/CN=${CERT_CN:-ledgesec.com}"
 fi
 
 exec openresty -g "daemon off;"
