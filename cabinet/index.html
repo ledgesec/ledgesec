@@ -29,7 +29,9 @@ fetch("/api/health")
   .then((response) => response.json().then((body) => ({ ok: response.ok, body })))
   .then(({ ok, body }) => {
     if (ok) {
-      status.textContent = "Postgres and ClickHouse answered. The edge reached the API.";
+      status.textContent = body.ingest === "disabled"
+        ? "Postgres and ClickHouse answered. Observation intake is off until the ingest secret is set on the API."
+        : "Postgres and ClickHouse answered. The edge reached the API.";
       return;
     }
     status.className = "down";

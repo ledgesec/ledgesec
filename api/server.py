@@ -204,6 +204,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             ok = False
             body["clickhouse"] = "down"
+        body["ingest"] = "ok" if ingest_secret() else "disabled"
         self.reply(200 if ok else 503, body)
 
     def sites(self):
