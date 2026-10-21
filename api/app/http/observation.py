@@ -8,7 +8,7 @@ from app.http.deps import ActorDep, AdminDep
 from app.http.schemas import AddressesOut, ObservationOut, StoredOut, SummaryOut
 from app.ids import SITE_ID
 from app.observation.addresses import address_panel
-from app.observation.ingest import accept_batch
+from app.observation.ingest import INGEST_BODY_LIMIT, accept_batch
 from app.observation.journal import fetch_events, fetch_summary, insert_observations
 from app.observation.summary import summarize
 
@@ -74,7 +74,7 @@ def addresses(_actor: AdminDep) -> JSONResponse:
 
 @router.post("/v1/observations")
 async def ingest(request: Request) -> JSONResponse:
-    body = await read_body(request)
+    body = await read_body(request, limit=INGEST_BODY_LIMIT)
     mac = (request.headers.get("x-ledgesec-mac") or "").strip().lower()
     try:
         lines = accept_batch(mac, body)

@@ -1,27 +1,28 @@
 # First customers. The request continues to the application.
-# log_by_lua only records a line and sends a batch to Ledgesec.
-# env must be in the main context or os.getenv never sees the secret.
+# log_by_lua only records a line. A worker timer sends the batch.
+# The secret is read from the environment or /etc/ledgesec/agent.env.
+# env directives belong in the main context, or the worker never sees them.
 env LEDGESEC_INGEST_SECRET;
 env LEDGESEC_SITE_ID;
-env LEDGESEC_CONTOUR;
+env LEDGESEC_EDGE_ID;
+env LEDGESEC_INGEST_URL;
+env LEDGESEC_SAMPLE_RATE;
 
 http {
-    lua_package_path "/opt/ledgesec/module/?.lua;;";
-    lua_shared_dict ledgesec_observe 8m;
+    lua_package_path "/usr/local/ledgesec/lua/?.lua;;";
+    lua_shared_dict ledgesec_observe 16m;
+
+    init_worker_by_lua_block {
+        require("ledgesec.observe").start()
+    }
 
     server {
         listen 443 ssl;
         server_name example.com;
-        # ssl_certificate and ssl_certificate_key stay the customer's.
 
         location / {
             log_by_lua_block {
-                local observe = require("ledgesec.observe")
-                observe.note({
-                    site_id = os.getenv("LEDGESEC_SITE_ID"),
-                    secret = os.getenv("LEDGESEC_INGEST_SECRET"),
-                    contour = os.getenv("LEDGESEC_CONTOUR") or "https://ledgesec.com",
-                })
+                require("ledgesec.observe").note()
             }
             proxy_pass http://127.0.0.1:8080;
         }

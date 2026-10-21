@@ -9,6 +9,8 @@ from app.ids import SITE_ID
 
 IPV4 = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 IPV6 = re.compile(r"^[0-9A-Fa-f:.]{2,64}$")
+MAX_EVENTS = 1000
+INGEST_BODY_LIMIT = 1024 * 1024
 
 
 def to_ipv6(ip: str) -> str:
@@ -38,7 +40,7 @@ def event_lines(body: bytes) -> list[str]:
     if not SITE_ID.match(edge_id):
         raise ValueError("bad_edge")
     events = parsed.get("events")
-    if not isinstance(events, list) or len(events) == 0 or len(events) > 50:
+    if not isinstance(events, list) or len(events) == 0 or len(events) > MAX_EVENTS:
         raise ValueError("bad_events")
     now = datetime.now(UTC)
     lines = []
@@ -55,6 +57,7 @@ def event_lines(body: bytes) -> list[str]:
         if route_group not in ("document", "asset", "api"):
             route_group = "document"
         stamp = when.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        sampled = 1 if event.get("sampled") is True else 0
         lines.append(
             json.dumps(
                 {
@@ -72,7 +75,7 @@ def event_lines(body: bytes) -> list[str]:
                     "had_session": 0,
                     "client_class": "",
                     "ja4": "",
-                    "sampled": 0,
+                    "sampled": sampled,
                 },
                 separators=(",", ":"),
             )

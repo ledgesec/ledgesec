@@ -1,6 +1,6 @@
 # Ledgesec gate
 
-Первые клиенты ставят режим наблюдения. Запрос идёт в их приложение. `log_by_lua` пишет строку без query, без тела и без Cookie и пачкой отправляет её на `https://ledgesec.com/v1/observations`. Заглушки и запрета в этом режиме нет. Пример: `module/nginx.conf.example`.
+Первые клиенты ставят режим наблюдения. Запрос идёт в их приложение. `log_by_lua` кладёт короткую запись в `lua_shared_dict`. Таймер воркера отправляет пачку `POST https://dash.ledgesec.com/api/v1/observations` с заголовком `X-Ledgesec-Mac`. Секрет — `LEDGESEC_INGEST_SECRET`. Тело, Cookie, query, Authorization и Referer не пишутся. Заглушки и запрета в этом режиме нет. Установка: `install.sh`. Пример: `module/nginx.conf.example`.
 
 Режим решения, когда контур может остановить запрос, остаётся в `ledgesec.gate` и на первых клиентах не включается.
 

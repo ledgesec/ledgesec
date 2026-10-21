@@ -40,7 +40,65 @@ local long_query = "/a?" .. string.rep("q", 400)
 assert(#observe.clean_path(long_query) <= 160)
 local body = observe.body("demo", "module", { ev })
 assert(string.find(body, "utm", 1, true) == nil)
+assert(string.find(body, "cookie", 1, true) == nil)
+assert(string.find(body, "authorization", 1, true) == nil)
+assert(string.find(body, "referer", 1, true) == nil)
 assert(observe.mac("ingest-secret", body) == token.hex_hmac("ingest-secret", body))
+
+assert(observe.is_probe("/.env"))
+assert(observe.is_probe("/.ENV"))
+assert(not observe.is_probe("/foo/.env"))
+assert(not observe.is_probe("/.gitignore"))
+assert(observe.is_probe("/.pem"))
+assert(not observe.is_probe("/server.pem"))
+assert(observe.is_probe("/phpMyAdmin/"))
+assert(observe.is_probe("/.DS_Store"))
+assert(not observe.is_probe("/pricing"))
+
+local keep_probe, sampled_probe = observe.decide("/.env?x=1", 200, 1, 99)
+assert(keep_probe and not sampled_probe)
+local keep_err, sampled_err = observe.decide("/pricing", 404, 1, 99)
+assert(keep_err and not sampled_err)
+local keep_hit, sampled_hit = observe.decide("/pricing", 200, 1, 1)
+assert(keep_hit and sampled_hit)
+local keep_miss = observe.decide("/", 200, 1, 2)
+assert(not keep_miss)
+local keep_all = observe.decide("/", 200, 100, 100)
+assert(keep_all)
+
+local ring = {}
+ring = observe.admit(ring, observe.event({ path = "/", ts = 1, status = 200, sampled = true }), 2)
+ring = observe.admit(ring, observe.event({ path = "/a", ts = 2, status = 200, sampled = true }), 2)
+ring = observe.admit(ring, observe.event({ path = "/b", ts = 3, status = 200, sampled = true }), 2)
+assert(#ring == 2)
+ring = observe.admit(ring, observe.event({ path = "/.env", ts = 4, status = 404, sampled = false }), 2)
+assert(#ring == 2)
+local packed = ring[1].json .. ring[2].json
+assert(string.find(packed, "/.env", 1, true))
+assert(string.find(packed, "leakquery", 1, true) == nil)
+
+local function slot(i)
+  if i == 2 then return 'S{"ts":10,"path":"/old"}' end
+  if i == 3 then return 'K{"ts":20,"path":"/.env"}' end
+  return nil
+end
+local got, last = observe.collect(slot, 0, 3, 1000, 900000)
+assert(#got == 2)
+assert(last == 3)
+assert(got[2].priority == "keep")
+assert(observe.should_send(got, 100, 21, 5000))
+assert(not observe.should_send({ { priority = "sample", ts = 1000 } }, 100, 2000, 5000))
+assert(observe.should_send({ { priority = "sample", ts = 1000 } }, 100, 7000, 5000))
+assert(observe.ingest_url(nil) == "https://dash.ledgesec.com/api/v1/observations")
+assert(observe.ingest_url("https://dash.ledgesec.com") == "https://dash.ledgesec.com/api/v1/observations")
+local scheme, host, port, path = observe.parse_url("https://dash.ledgesec.com/api/v1/observations")
+assert(scheme == "https" and host == "dash.ledgesec.com" and port == 443 and path == "/api/v1/observations")
+assert(observe.http_ok(202) and not observe.http_ok(401) and not observe.http_ok(nil))
+local parsed = observe.read_env_file("LEDGESEC_SITE_ID=demo\n# secret\nLEDGESEC_SAMPLE_RATE=1\n")
+assert(parsed.LEDGESEC_SITE_ID == "demo")
+assert(parsed.LEDGESEC_SAMPLE_RATE == "1")
+assert(observe.config_from({ LEDGESEC_SITE_ID = "demo", LEDGESEC_EDGE_ID = "eu" }).url
+  == "https://dash.ledgesec.com/api/v1/observations")
 
 io.write("HANDOFF " .. token.handoff_token(
   "test-secret", "demo", "127.0.0.1:44721", "/pricing", "utm=1", "203.0.113.10", 2000000000, "n0nce"

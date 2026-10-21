@@ -62,6 +62,28 @@ def test_stale_and_huge_paths_are_dropped(monkeypatch):
     assert accept_batch(mac_for("secret", body), body) == []
 
 
+def test_sampled_flag_is_stored(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_INGEST_SECRET", "secret")
+    now_ms = int(datetime.now(UTC).timestamp() * 1000)
+    body = batch([{"ts": now_ms, "path": "/", "ip": "203.0.113.10", "sampled": True}])
+    row = json.loads(accept_batch(mac_for("secret", body), body)[0])
+    assert row["sampled"] == 1
+    plain = batch([{"ts": now_ms, "path": "/", "ip": "203.0.113.10", "sampled": False}])
+    row = json.loads(accept_batch(mac_for("secret", plain), plain)[0])
+    assert row["sampled"] == 0
+
+
+def test_a_thousand_events_fit_and_one_more_does_not(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_INGEST_SECRET", "secret")
+    now_ms = int(datetime.now(UTC).timestamp() * 1000)
+    events = [{"ts": now_ms, "path": "/", "ip": "203.0.113.10"} for _ in range(1000)]
+    body = batch(events)
+    assert len(accept_batch(mac_for("secret", body), body)) == 1000
+    with pytest.raises(ValueError, match="bad_events"):
+        huge = batch(events + [{"ts": now_ms, "path": "/"}])
+        accept_batch(mac_for("secret", huge), huge)
+
+
 def test_a_bad_site_is_rejected(monkeypatch):
     monkeypatch.setenv("LEDGESEC_INGEST_SECRET", "secret")
     body = batch([{"ts": 1, "path": "/"}], site_id="bad site")
