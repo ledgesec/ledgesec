@@ -912,6 +912,7 @@ mod tests {
     fn lua_module_matches_the_contour_tokens() {
         let output = std::process::Command::new("lua5.4")
             .arg("module/check.lua")
+            .current_dir(env!("CARGO_MANIFEST_DIR"))
             .output()
             .expect("lua5.4");
         let text = String::from_utf8(output.stdout).unwrap();
