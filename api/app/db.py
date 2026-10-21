@@ -1,20 +1,26 @@
 import os
 from pathlib import Path
-from urllib.parse import quote_plus
 
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.engine import URL
 from sqlalchemy.orm import sessionmaker
 
 
 def database_url() -> str:
-    user = quote_plus(os.environ.get("PGUSER", "ledgesec"))
-    password = quote_plus(os.environ.get("PGPASSWORD", ""))
-    host = os.environ.get("PGHOST", "127.0.0.1")
-    port = os.environ.get("PGPORT", "5432")
-    name = os.environ.get("PGDATABASE", "ledgesec")
-    return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{name}"
+    url = URL.create(
+        "postgresql+psycopg",
+        username=os.environ.get("PGUSER", "ledgesec"),
+        password=os.environ.get("PGPASSWORD", ""),
+        host=os.environ.get("PGHOST", "127.0.0.1"),
+        port=int(os.environ.get("PGPORT", "5432")),
+        database=os.environ.get("PGDATABASE", "ledgesec"),
+    )
+    # URL.render_as_string leaves a space as a space. A space in the password
+    # must stay one token: quote_plus turned it into "+", and the parser
+    # does not turn "+" back into a space, so Postgres rejected the login.
+    return url.render_as_string(hide_password=False).replace(" ", "%20")
 
 
 engine = create_engine(database_url(), pool_pre_ping=True, connect_args={"connect_timeout": 2})

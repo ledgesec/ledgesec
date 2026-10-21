@@ -1,9 +1,10 @@
 from alembic import command
 from alembic.script import ScriptDirectory
+from sqlalchemy.engine import make_url
 
 import app.access.models
 import app.edge.models  # noqa: F401 — register cert_state before reading metadata
-from app.db import BASELINE, alembic_config, should_stamp_baseline
+from app.db import BASELINE, alembic_config, database_url, should_stamp_baseline
 from app.orm import Base
 
 
@@ -14,6 +15,16 @@ def test_metadata_is_the_three_postgres_tables():
     assert users.c.site_id.nullable
     cert = Base.metadata.tables["cert_state"]
     assert any(fk.column.table.name == "sites" for fk in cert.c.site_id.foreign_keys)
+
+
+def test_password_with_a_space_survives_the_url(monkeypatch):
+    monkeypatch.setenv("PGPASSWORD", "alpha beta")
+    assert make_url(database_url()).password == "alpha beta"
+
+
+def test_password_plus_is_not_read_as_a_space(monkeypatch):
+    monkeypatch.setenv("PGPASSWORD", "a+b")
+    assert make_url(database_url()).password == "a+b"
 
 
 def test_stamp_only_an_existing_schema_without_a_version():
