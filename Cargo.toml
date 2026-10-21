@@ -1,0 +1,8 @@
+[package]
+name = "ledgesec-gate"
+version = "0.1.0"
+edition = "2021"
+description = "Customer gate that hands an undecided request to the Ledgesec contour"
+license = "MIT"
+
+[dependencies]
