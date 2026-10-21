@@ -1,4 +1,4 @@
-import type { AddressRow, Observation } from "@/entities/observation/model";
+import type { AddressRow, Observation, Summary } from "@/entities/observation/model";
 
 type ApiObservation = {
   ts: string;
@@ -30,6 +30,12 @@ export async function readObservations(): Promise<Observation[]> {
     ip: row.ip ?? "",
     marker: row.marker,
   }));
+}
+
+export async function readSummary(): Promise<Summary> {
+  const response = await fetch("/api/v1/summary", { credentials: "include" });
+  if (!response.ok) throw new Error("journal");
+  return response.json();
 }
 
 export async function readAddresses(): Promise<AddressRow[]> {

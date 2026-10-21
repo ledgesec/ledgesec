@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
-import { DashboardPage } from "@/fsd/pages/dashboard/ui/dashboard-page";
+import { CabinetPage } from "@/fsd/pages/cabinet/ui/cabinet-page";
 
 export default async function Page() {
   const host = (await headers()).get("host") ?? "";
-  return <DashboardPage host={host} />;
+  return <CabinetPage host={host} mode="client" />;
 }

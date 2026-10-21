@@ -13,7 +13,7 @@ ledgesec.com, www.ledgesec.com {
 	}
 }
 
-dash.ledgesec.com {
+dash.ledgesec.com, admin.ledgesec.com {
 	handle /edge-health {
 		respond "ok" 200
 	}

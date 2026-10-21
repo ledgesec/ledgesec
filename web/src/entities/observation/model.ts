@@ -9,6 +9,18 @@ export type Observation = {
   marker: Marker | null;
 };
 
+export type HourCount = { hour: string; requests: number; probes: number };
+
+export type Summary = {
+  window: "24h";
+  requests: number;
+  probes: number;
+  sites: number;
+  edges: { id: string; requests: number }[];
+  hours: HourCount[];
+  markers: { path: string; label: string; count: number }[];
+};
+
 export type AddressRow = {
   ip: string;
   edges: Record<string, number>;

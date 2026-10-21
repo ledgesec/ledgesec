@@ -35,7 +35,7 @@ export function HomePage({ host }: { host: string }) {
         </p>
       </main>
       <footer className="mx-auto w-full max-w-xl px-5 pb-10 text-sm text-muted-foreground">
-        ledgesec.com is the site. The dashboard uses the same paper and the same rust mark for a probe.
+        ledgesec.com is the site. The site cabinet is dash. The admin cabinet is a separate host.
       </footer>
     </>
   );
