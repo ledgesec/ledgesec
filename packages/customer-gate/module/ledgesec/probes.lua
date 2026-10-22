@@ -4,9 +4,15 @@ local M = {}
 local rules = {
   {
     exact = { "/.env" },
-    prefixes = { "/.env.", "/.env/" },
-    suffixes = { "/.env" },
+    prefixes = { "/.env.", "/.env/", "/.env-" },
+    suffixes = { "/.env", "/.env~", "/sendgrid.env", "/config.env", "/env.js", "/env.txt", "/env-config.js" },
     contains = { "/.env.", "/.env/" },
+  },
+  {
+    exact = {  },
+    prefixes = {  },
+    suffixes = { "/secrets.json", "/auth.json" },
+    contains = {  },
   },
   {
     exact = {  },
@@ -17,7 +23,7 @@ local rules = {
   {
     exact = { "/.git" },
     prefixes = { "/.git/" },
-    suffixes = {  },
+    suffixes = { "/.git-credentials", "/.gitmodules" },
     contains = {  },
   },
   {
@@ -29,13 +35,25 @@ local rules = {
   {
     exact = { "/.aws" },
     prefixes = { "/.aws/" },
-    suffixes = {  },
+    suffixes = { "/.boto", "/.s3cfg", "/.amplifyrc", "/credentials.json", "/credentials.ini", "/aws-exports.js", "/config/aws.yml" },
     contains = {  },
   },
   {
     exact = {  },
     prefixes = {  },
-    suffixes = { "/wp-config.php" },
+    suffixes = {  },
+    contains = { "/wp-config.php" },
+  },
+  {
+    exact = {  },
+    prefixes = {  },
+    suffixes = {  },
+    contains = { "/appsettings." },
+  },
+  {
+    exact = {  },
+    prefixes = { "/.docker/" },
+    suffixes = { "/.npmrc", "/docker-compose.yml" },
     contains = {  },
   },
   {
@@ -102,6 +120,30 @@ local rules = {
     exact = {  },
     prefixes = {  },
     suffixes = { ".sql.gz", ".sql" },
+    contains = {  },
+  },
+  {
+    exact = {  },
+    prefixes = {  },
+    suffixes = { "/.gitlab-ci.yml" },
+    contains = { "/.github/workflows/" },
+  },
+  {
+    exact = { "/mcp.json" },
+    prefixes = { "/.claude/", "/.continue/" },
+    suffixes = { "/mcp.json" },
+    contains = {  },
+  },
+  {
+    exact = {  },
+    prefixes = {  },
+    suffixes = { "/phpinfo.php", "/info.php", "/wp-content/debug.log" },
+    contains = {  },
+  },
+  {
+    exact = {  },
+    prefixes = {  },
+    suffixes = { "/vendor/composer/installed.json" },
     contains = {  },
   },
 }

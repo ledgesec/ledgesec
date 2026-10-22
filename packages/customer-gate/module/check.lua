@@ -63,6 +63,8 @@ assert(not observe.is_probe("/server.pem"))
 assert(observe.is_probe("/phpMyAdmin/"))
 assert(observe.is_probe("/.DS_Store"))
 assert(not observe.is_probe("/pricing"))
+assert(observe.is_probe("/mcp.json"))
+assert(not observe.is_probe("/app.js"))
 
 local keep_probe, sampled_probe = observe.decide("/.env?x=1", 200, 1, 99)
 assert(keep_probe and not sampled_probe)
