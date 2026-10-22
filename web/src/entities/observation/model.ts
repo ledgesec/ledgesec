@@ -43,7 +43,14 @@ export type AddressRow = {
 
 export function pathMarker(path: string): Marker | null {
   const value = path.toLowerCase();
-  if (value === "/.env" || value.startsWith("/.env.") || value.startsWith("/.env/")) {
+  if (
+    value === "/.env" ||
+    value.startsWith("/.env.") ||
+    value.startsWith("/.env/") ||
+    value.endsWith("/.env") ||
+    value.includes("/.env.") ||
+    value.includes("/.env/")
+  ) {
     return { code: "env", label: "Secret file" };
   }
   if (value.startsWith("/.htaccess") || value.startsWith("/.htpasswd")) {

@@ -5,8 +5,8 @@ local rules = {
   {
     exact = { "/.env" },
     prefixes = { "/.env.", "/.env/" },
-    suffixes = {  },
-    contains = {  },
+    suffixes = { "/.env" },
+    contains = { "/.env.", "/.env/" },
   },
   {
     exact = {  },

@@ -26,7 +26,14 @@ class ProbeRule:
 
 
 RULES = (
-    ProbeRule("env", "Secret file", exact=("/.env",), prefixes=("/.env.", "/.env/")),
+    ProbeRule(
+        "env",
+        "Secret file",
+        exact=("/.env",),
+        prefixes=("/.env.", "/.env/"),
+        suffixes=("/.env",),
+        contains=("/.env.", "/.env/"),
+    ),
     ProbeRule("htaccess", "Server file", prefixes=("/.htaccess", "/.htpasswd")),
     ProbeRule("git", "Source checkout", exact=("/.git",), prefixes=("/.git/",)),
     ProbeRule("svn", "Source checkout", exact=("/.svn",), prefixes=("/.svn/",)),

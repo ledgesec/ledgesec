@@ -54,7 +54,9 @@ assert(observe.mac("ingest-secret", body) == token.hex_hmac("ingest-secret", bod
 
 assert(observe.is_probe("/.env"))
 assert(observe.is_probe("/.ENV"))
-assert(not observe.is_probe("/foo/.env"))
+assert(observe.is_probe("/foo/.env"))
+assert(observe.is_probe("/redis/.env"))
+assert(not observe.is_probe("/.environment"))
 assert(not observe.is_probe("/.gitignore"))
 assert(observe.is_probe("/.pem"))
 assert(not observe.is_probe("/server.pem"))
