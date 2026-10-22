@@ -14,6 +14,28 @@ export const QUERY = "q";
 export const SITE = "site";
 export const COUNTRY = "country";
 export const EDGE = "edge";
+export const LABEL = "label";
+export const SLOW = "slow";
+
+export function hrefWithParams(pathname: string, current: { toString(): string }, patch: Record<string, string>) {
+  const next = new URLSearchParams(current.toString());
+  for (const [key, value] of Object.entries(patch)) {
+    const text = value.slice(0, FIND_LIMIT);
+    if (text.trim() === "") next.delete(key);
+    else next.set(key, text);
+  }
+  const query = next.toString();
+  return query ? `${pathname}?${query}` : pathname;
+}
+
+export function fieldsFrom(params: { get(name: string): string | null }, admin: boolean): JournalFields {
+  return {
+    q: (params.get(QUERY) ?? "").slice(0, FIND_LIMIT),
+    site: (params.get(SITE) ?? "").slice(0, FIND_LIMIT),
+    country: (params.get(COUNTRY) ?? "").slice(0, FIND_LIMIT),
+    edge: admin ? (params.get(EDGE) ?? "").slice(0, FIND_LIMIT) : "",
+  };
+}
 
 export type JournalFields = { q: string; site: string; country: string; edge: string };
 

@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import type { Summary } from "@/entities/observation/model";
 import { siteLines } from "@/fsd/pages/cabinet/site-lines";
 import { Badge } from "@/shared/ui/badge";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
-import { FIELD_LABEL, FIELD_SITE, NO_MATCH, choiceList, keepRow } from "@/widgets/table-tools/query";
-import { TableTools } from "@/widgets/table-tools/ui/table-tools";
+import { FIELD_LABEL, FIELD_SITE, LABEL, NO_MATCH, QUERY, SITE, SLOW, choiceList, keepRow } from "@/widgets/table-tools/query";
+import { TableTools, useField } from "@/widgets/table-tools/ui/table-tools";
 import { formatRps } from "@/widgets/world-map/places";
 
 const SKELETON_ROWS = 4;
@@ -34,10 +33,10 @@ export function SiteBoard({
   onPath: (path: string) => void;
 }) {
   const lines = summary ? siteLines(summary.by_site ?? [], summary.domains ?? []) : null;
-  const [siteQuery, setSiteQuery] = useState("");
-  const [sitePick, setSitePick] = useState("");
-  const [slowQuery, setSlowQuery] = useState("");
-  const [slowLabel, setSlowLabel] = useState("");
+  const [siteQuery, setSiteQuery] = useField(QUERY);
+  const [sitePick, setSitePick] = useField(SITE, 0);
+  const [slowQuery, setSlowQuery] = useField(SLOW);
+  const [slowLabel, setSlowLabel] = useField(LABEL, 0);
   const sites = (lines ?? []).filter((line) => keepRow([line.name], siteQuery, [line.name], [sitePick]));
   const slow = (summary?.slow ?? []).filter((row) => keepRow([row.path, row.label], slowQuery, [row.label], [slowLabel]));
   return (

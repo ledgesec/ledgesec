@@ -1,10 +1,47 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Filter, Search } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
-import { ALL, FILTERS, FIND_LIMIT, FIND_WAIT_MS, SEARCH } from "@/widgets/table-tools/query";
+import { ALL, FILTERS, FIND_LIMIT, FIND_WAIT_MS, SEARCH, hrefWithParams } from "@/widgets/table-tools/query";
+
+export function useField(name: string, wait = FIND_WAIT_MS) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const params = useSearchParams();
+  const stored = (params.get(name) ?? "").slice(0, FIND_LIMIT);
+  const [draft, setDraft] = useState(stored);
+  const pending = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (pending.current !== null) return;
+    setDraft(stored);
+  }, [stored]);
+
+  useEffect(() => {
+    const text = pending.current;
+    if (text === null) return;
+    if (text === stored || (text.trim() === "" && stored === "")) {
+      pending.current = null;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      pending.current = null;
+      router.replace(hrefWithParams(pathname, params, { [name]: text }), { scroll: false });
+    }, wait);
+    return () => window.clearTimeout(timer);
+  }, [draft, name, params, pathname, router, stored, wait]);
+
+  function setValue(next: string) {
+    const text = next.slice(0, FIND_LIMIT);
+    pending.current = text;
+    setDraft(text);
+  }
+
+  return [draft, setValue] as const;
+}
 
 export type FieldFilter = {
   id: string;
@@ -13,15 +50,6 @@ export type FieldFilter = {
   options: string[];
   onChange: (value: string) => void;
 };
-
-export function useHeld(value: string, wait = FIND_WAIT_MS) {
-  const [held, setHeld] = useState(value);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setHeld(value), wait);
-    return () => window.clearTimeout(timer);
-  }, [value, wait]);
-  return held;
-}
 
 export function TableTools({
   query,

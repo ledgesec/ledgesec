@@ -1,19 +1,18 @@
 "use client";
 
-import { useState } from "react";
 import type { Summary } from "@/entities/observation/model";
 import { Badge } from "@/shared/ui/badge";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { HourChart } from "@/widgets/hour-chart/ui/hour-chart";
-import { FIELD_LABEL, NO_MATCH, choiceList, keepRow } from "@/widgets/table-tools/query";
-import { TableTools } from "@/widgets/table-tools/ui/table-tools";
+import { FIELD_LABEL, LABEL, NO_MATCH, QUERY, choiceList, keepRow } from "@/widgets/table-tools/query";
+import { TableTools, useField } from "@/widgets/table-tools/ui/table-tools";
 
 const SKELETON_PATHS = 4;
 
 export function ProbeBoard({ summary, onPath }: { summary: Summary | null; onPath: (path: string) => void }) {
   const share = summary ? (summary.requests === 0 ? "0%" : `${Math.round((summary.probes / summary.requests) * 100)}%`) : null;
-  const [query, setQuery] = useState("");
-  const [label, setLabel] = useState("");
+  const [query, setQuery] = useField(QUERY);
+  const [label, setLabel] = useField(LABEL, 0);
   const markers = (summary?.markers ?? []).filter((marker) => keepRow([marker.path, marker.label], query, [marker.label], [label]));
   const cards = [
     { label: "Probes", value: summary ? String(summary.probes) : null },

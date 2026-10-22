@@ -47,10 +47,18 @@ export function sectionHref(host: string, mode: CabinetMode, section: CabinetSec
   return `${home}/${section}`;
 }
 
-export function requestHref(host: string, mode: CabinetMode, ip: string, path: string): string {
-  const params = new URLSearchParams();
+export function requestHref(
+  host: string,
+  mode: CabinetMode,
+  ip: string,
+  path: string,
+  current?: { toString(): string },
+): string {
+  const params = new URLSearchParams(current?.toString() ?? "");
   if (ip) params.set(REQUEST_IP, ip);
+  else params.delete(REQUEST_IP);
   if (path) params.set(REQUEST_PATH, path);
+  else params.delete(REQUEST_PATH);
   const base = sectionHref(host, mode, REQUESTS);
   const query = params.toString();
   return query ? `${base}?${query}` : base;

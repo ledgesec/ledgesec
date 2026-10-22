@@ -5,15 +5,19 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   BLANK_FIELDS,
+  COUNTRY,
+  EDGE,
   FIELD_COUNTRY,
   FIELD_EDGE,
   FIELD_SITE,
   NO_MATCH,
+  QUERY,
+  SITE,
   choiceList,
+  fieldsFrom,
   keepRow,
-  type JournalFields,
 } from "@/widgets/table-tools/query";
-import { TableTools, useHeld } from "@/widgets/table-tools/ui/table-tools";
+import { TableTools, useField } from "@/widgets/table-tools/ui/table-tools";
 import {
   DEFAULT_REFRESH_SECONDS,
   REFRESH_SECONDS,
@@ -80,10 +84,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
   const [phase, setPhase] = useState<"checking" | "out" | "ready">("checking");
   const [journal, setJournal] = useState<Journal | null>(null);
   const [journalError, setJournalError] = useState(false);
-  const [requestFields, setRequestFields] = useState<JournalFields>(BLANK_FIELDS);
-  const [addressFields, setAddressFields] = useState<JournalFields>(BLANK_FIELDS);
-  const heldRequestQuery = useHeld(requestFields.q);
-  const heldAddressQuery = useHeld(addressFields.q);
+  const tableFields = fieldsFrom(params, mode === ADMIN);
   const [refreshSeconds, setRefreshSeconds] = useState<RefreshSeconds>(DEFAULT_REFRESH_SECONDS);
   const [freshRequests, setFreshRequests] = useState<string[]>([]);
   const seenRequests = useRef<string[] | null>(null);
@@ -91,13 +92,9 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
   const observationOnFirstPage = useRef(true);
   const scoped = useRef(false);
   const filterRef = useRef({ section, addressFilter, pathFilter });
-  const requestLookup = useMemo(
-    () => ({ q: heldRequestQuery, site: requestFields.site, country: requestFields.country, edge: requestFields.edge }),
-    [heldRequestQuery, requestFields.site, requestFields.country, requestFields.edge],
-  );
-  const addressLookup = useMemo(
-    () => ({ q: heldAddressQuery, site: addressFields.site, country: addressFields.country, edge: addressFields.edge }),
-    [heldAddressQuery, addressFields.site, addressFields.country, addressFields.edge],
+  const tableLookup = useMemo(
+    () => ({ q: tableFields.q, site: tableFields.site, country: tableFields.country, edge: tableFields.edge }),
+    [tableFields.q, tableFields.site, tableFields.country, tableFields.edge],
   );
 
   useEffect(() => {
@@ -160,11 +157,11 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
             "next",
             onRequests ? (addressFilter ?? "") : "",
             onRequests ? (pathFilter ?? "") : "",
-            onRequests ? requestLookup : BLANK_FIELDS,
+            onRequests ? tableLookup : BLANK_FIELDS,
             mode === ADMIN,
           )
         : Promise.resolve(null);
-      const addresses = refreshAddresses ? readAddresses(null, "next", addressLookup) : Promise.resolve(null);
+      const addresses = refreshAddresses ? readAddresses(null, "next", tableLookup) : Promise.resolve(null);
       Promise.all([readSummary(), observations, addresses])
         .then(([summary, observationPage, addressPage]) => {
           if (observationPage) {
@@ -210,8 +207,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
     refreshSeconds,
     addressFilter,
     pathFilter,
-    requestLookup,
-    addressLookup,
+    tableLookup,
   ]);
 
   useEffect(() => {
@@ -238,7 +234,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
 
   useEffect(() => {
     if (phase !== "ready" || section !== REQUESTS) return;
-    readObservations(null, "next", addressFilter ?? "", pathFilter ?? "", requestLookup, mode === ADMIN)
+    readObservations(null, "next", addressFilter ?? "", pathFilter ?? "", tableLookup, mode === ADMIN)
       .then((page) => {
         seenRequests.current = page.rows.map(observationKey);
         setFreshRequests([]);
@@ -249,18 +245,18 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
         );
       })
       .catch(() => setJournalError(true));
-  }, [phase, section, mode, addressFilter, pathFilter, requestLookup]);
+  }, [phase, section, mode, addressFilter, pathFilter, tableLookup]);
 
   useEffect(() => {
     if (phase !== "ready" || section !== ADDRESSES || mode !== ADMIN) return;
-    readAddresses(null, "next", addressLookup)
+    readAddresses(null, "next", tableLookup)
       .then((page) => {
         setJournal((current) =>
           current ? { ...current, addresses: page.rows, addressNext: page.next, addressPrev: page.prev } : current,
         );
       })
       .catch(() => setJournalError(true));
-  }, [phase, section, mode, addressLookup]);
+  }, [phase, section, mode, tableLookup]);
 
   useEffect(() => {
     let cancelled = false;
@@ -363,26 +359,30 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
     );
   }
 
+  function requestsHref(ip: string, path: string) {
+    return requestHref(host, mode, ip, path, section === REQUESTS ? params : undefined);
+  }
+
   function openAddress(ip: string) {
-    router.push(requestHref(host, mode, ip, ""));
+    router.push(requestsHref(ip, ""));
   }
 
   function openPath(path: string) {
-    router.push(requestHref(host, mode, "", path));
+    router.push(requestsHref("", path));
   }
 
   function clearAddress() {
-    router.push(requestHref(host, mode, "", pathFilter ?? ""));
+    router.push(requestsHref("", pathFilter ?? ""));
   }
 
   function clearPath() {
-    router.push(requestHref(host, mode, addressFilter ?? "", ""));
+    router.push(requestsHref(addressFilter ?? "", ""));
   }
 
   function turnObservations(direction: "next" | "prev") {
     const cursor = direction === "next" ? journal?.observationNext : journal?.observationPrev;
     if (!cursor) return;
-    readObservations(cursor, direction, addressFilter ?? "", pathFilter ?? "", requestLookup, mode === ADMIN)
+    readObservations(cursor, direction, addressFilter ?? "", pathFilter ?? "", tableLookup, mode === ADMIN)
       .then(keepObservations)
       .catch(() => setJournalError(true));
   }
@@ -390,7 +390,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
   function turnAddresses(direction: "next" | "prev") {
     const cursor = direction === "next" ? journal?.addressNext : journal?.addressPrev;
     if (!cursor) return;
-    readAddresses(cursor, direction, addressLookup)
+    readAddresses(cursor, direction, tableLookup)
       .then(keepAddresses)
       .catch(() => setJournalError(true));
   }
@@ -450,39 +450,11 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
               </button>
             </div>
           ) : null}
-          <TableTools
-            query={requestFields.q}
-            onQuery={(q) => setRequestFields((current) => ({ ...current, q }))}
-            filters={[
-              {
-                id: "site",
-                label: FIELD_SITE,
-                value: requestFields.site,
-                options: choiceList([
-                  ...(journal?.summary.by_site ?? []).map((site) => site.name),
-                  ...(journal?.summary.domains ?? []).map((domain) => domain.name),
-                ]),
-                onChange: (site) => setRequestFields((current) => ({ ...current, site })),
-              },
-              {
-                id: "country",
-                label: FIELD_COUNTRY,
-                value: requestFields.country,
-                options: choiceList((journal?.summary.countries ?? []).map((country) => country.code)),
-                onChange: (country) => setRequestFields((current) => ({ ...current, country })),
-              },
-              ...(mode === ADMIN
-                ? [
-                    {
-                      id: "edge",
-                      label: FIELD_EDGE,
-                      value: requestFields.edge,
-                      options: choiceList((journal?.summary.edges ?? []).map((edge) => edge.id)),
-                      onChange: (edge: string) => setRequestFields((current) => ({ ...current, edge })),
-                    },
-                  ]
-                : []),
-            ]}
+          <JournalTools
+            admin={mode === ADMIN}
+            sites={siteNames(journal)}
+            countries={(journal?.summary.countries ?? []).map((country) => country.code)}
+            edges={(journal?.summary.edges ?? []).map((edge) => edge.id)}
           />
           <RequestList
             rows={journal?.observations ?? []}
@@ -492,7 +464,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
             onAddress={openAddress}
             fresh={freshRequests}
             empty={
-              requestFields.q !== "" || requestFields.site !== "" || requestFields.country !== "" || requestFields.edge !== ""
+              tableFields.q !== "" || tableFields.site !== "" || tableFields.country !== "" || tableFields.edge !== ""
                 ? NO_MATCH
                 : addressFilter
                 ? "This address is not in the latest requests."
@@ -511,42 +483,18 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
       ) : null}
       {(journal || !journalError) && section === ADDRESSES && mode === ADMIN ? (
         <div className="glass-panel mt-6 overflow-x-auto p-4">
-          <TableTools
-            query={addressFields.q}
-            onQuery={(q) => setAddressFields((current) => ({ ...current, q }))}
-            filters={[
-              {
-                id: "site",
-                label: FIELD_SITE,
-                value: addressFields.site,
-                options: choiceList([
-                  ...(journal?.summary.by_site ?? []).map((site) => site.name),
-                  ...(journal?.summary.domains ?? []).map((domain) => domain.name),
-                ]),
-                onChange: (site) => setAddressFields((current) => ({ ...current, site })),
-              },
-              {
-                id: "country",
-                label: FIELD_COUNTRY,
-                value: addressFields.country,
-                options: choiceList((journal?.summary.countries ?? []).map((country) => country.code)),
-                onChange: (country) => setAddressFields((current) => ({ ...current, country })),
-              },
-              {
-                id: "edge",
-                label: FIELD_EDGE,
-                value: addressFields.edge,
-                options: choiceList((journal?.summary.edges ?? []).map((edge) => edge.id)),
-                onChange: (edge) => setAddressFields((current) => ({ ...current, edge })),
-              },
-            ]}
+          <JournalTools
+            admin
+            sites={siteNames(journal)}
+            countries={(journal?.summary.countries ?? []).map((country) => country.code)}
+            edges={(journal?.summary.edges ?? []).map((edge) => edge.id)}
           />
           <AddressPanel
             rows={journal?.addresses ?? []}
             pending={!journal}
             onRequests={openAddress}
             empty={
-              addressFields.q !== "" || addressFields.site !== "" || addressFields.country !== "" || addressFields.edge !== ""
+              tableFields.q !== "" || tableFields.site !== "" || tableFields.country !== "" || tableFields.edge !== ""
                 ? NO_MATCH
                 : undefined
             }
@@ -560,6 +508,43 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
         </div>
       ) : null}
     </CabinetShell>
+  );
+}
+
+function siteNames(journal: Journal | null) {
+  return [
+    ...(journal?.summary.by_site ?? []).map((site) => site.name),
+    ...(journal?.summary.domains ?? []).map((domain) => domain.name),
+  ];
+}
+
+function JournalTools({
+  sites,
+  countries,
+  edges,
+  admin,
+}: {
+  sites: string[];
+  countries: string[];
+  edges: string[];
+  admin: boolean;
+}) {
+  const [query, setQuery] = useField(QUERY);
+  const [site, setSite] = useField(SITE, 0);
+  const [country, setCountry] = useField(COUNTRY, 0);
+  const [edge, setEdge] = useField(EDGE, 0);
+  return (
+    <TableTools
+      query={query}
+      onQuery={setQuery}
+      filters={[
+        { id: SITE, label: FIELD_SITE, value: site, options: choiceList(sites), onChange: setSite },
+        { id: COUNTRY, label: FIELD_COUNTRY, value: country, options: choiceList(countries), onChange: setCountry },
+        ...(admin
+          ? [{ id: EDGE, label: FIELD_EDGE, value: edge, options: choiceList(edges), onChange: setEdge }]
+          : []),
+      ]}
+    />
   );
 }
 
@@ -621,7 +606,11 @@ function Overview({
   observations: Observation[];
   freshRequests: string[];
 }) {
-  const [fields, setFields] = useState<JournalFields>(BLANK_FIELDS);
+  const [query, setQuery] = useField(QUERY);
+  const [site, setSite] = useField(SITE, 0);
+  const [country, setCountry] = useField(COUNTRY, 0);
+  const [edge, setEdge] = useField(EDGE, 0);
+  const pickedEdge = mode === ADMIN ? edge : "";
   const latest = latestRequests(observations);
   const flashes = countryFlashes(
     latest.map((row) => ({ key: observationKey(row), country: row.country, marked: row.marker !== null })),
@@ -631,9 +620,9 @@ function Overview({
   const rows = latest.filter((row) =>
     keepRow(
       [row.siteId, row.path, row.country, row.marker?.label ?? "", ...(admin ? [row.edgeId, row.ip] : [])],
-      fields.q,
+      query,
       [row.siteId, row.country, ...(admin ? [row.edgeId] : [])],
-      [fields.site, fields.country, ...(admin ? [fields.edge] : [])],
+      [site, country, ...(admin ? [pickedEdge] : [])],
     ),
   );
   const cards = [
@@ -704,31 +693,31 @@ function Overview({
         <p className="mt-1 text-xs text-muted-foreground">The latest 30. A new request starts green, then settles.</p>
         <div className="mt-4">
           <TableTools
-            query={fields.q}
-            onQuery={(q) => setFields((current) => ({ ...current, q }))}
+            query={query}
+            onQuery={setQuery}
             filters={[
               {
                 id: "site",
                 label: FIELD_SITE,
-                value: fields.site,
+                value: site,
                 options: choiceList(latest.map((row) => row.siteId)),
-                onChange: (site) => setFields((current) => ({ ...current, site })),
+                onChange: setSite,
               },
               {
                 id: "country",
                 label: FIELD_COUNTRY,
-                value: fields.country,
+                value: country,
                 options: choiceList(latest.map((row) => row.country)),
-                onChange: (country) => setFields((current) => ({ ...current, country })),
+                onChange: setCountry,
               },
               ...(admin
                 ? [
                     {
                       id: "edge",
                       label: FIELD_EDGE,
-                      value: fields.edge,
+                      value: pickedEdge,
                       options: choiceList(latest.map((row) => row.edgeId)),
-                      onChange: (edge: string) => setFields((current) => ({ ...current, edge })),
+                      onChange: setEdge,
                     },
                   ]
                 : []),
@@ -741,7 +730,7 @@ function Overview({
             showAddress={admin}
             onAddress={onRequests}
             fresh={freshRequests}
-            empty={fields.q !== "" || fields.site !== "" || fields.country !== "" || fields.edge !== "" ? NO_MATCH : undefined}
+            empty={query !== "" || site !== "" || country !== "" || pickedEdge !== "" ? NO_MATCH : undefined}
           />
         </div>
       </section>

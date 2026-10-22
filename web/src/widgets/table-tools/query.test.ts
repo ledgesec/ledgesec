@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { BLANK_FIELDS, FIND_LIMIT, choiceList, fieldParams, keepRow } from "./query.ts";
+import { BLANK_FIELDS, FIND_LIMIT, QUERY, SITE, choiceList, fieldParams, fieldsFrom, hrefWithParams, keepRow } from "./query.ts";
 
 test("a row stays when the search and filters are empty", () => {
   assert.equal(keepRow(["shop.example", "/pricing"], "", ["shop.example"], [""]), true);
@@ -24,6 +24,16 @@ test("field params omit an empty filter and hide the edge from a site user", () 
   });
   const long = "x".repeat(FIND_LIMIT + 8);
   assert.equal(fieldParams({ ...BLANK_FIELDS, q: long }, true).q.length, FIND_LIMIT);
+});
+
+test("a table query is written into the page address and an empty value is removed", () => {
+  assert.equal(hrefWithParams("/admin/requests", new URLSearchParams("ip=203.0.113.10"), { q: "shop", site: "" }), "/admin/requests?ip=203.0.113.10&q=shop");
+  assert.equal(hrefWithParams("/admin/sites", new URLSearchParams("q=shop&slow=env"), { q: "   " }), "/admin/sites?slow=env");
+  const params = new URLSearchParams(hrefWithParams("/requests", new URLSearchParams(), { q: "x".repeat(FIND_LIMIT + 4), edge: "eu" }).slice("/requests?".length));
+  assert.deepEqual(fieldsFrom(params, false), { ...BLANK_FIELDS, q: "x".repeat(FIND_LIMIT) });
+  assert.equal(fieldsFrom(params, true).edge, "eu");
+  assert.equal(params.get(QUERY)?.length, FIND_LIMIT);
+  assert.equal(params.get(SITE), null);
 });
 
 test("choices drop blanks and repeat once", () => {
