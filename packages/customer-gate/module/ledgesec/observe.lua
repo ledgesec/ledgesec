@@ -18,6 +18,7 @@ M.BODY_MAX = 900000
 M.RING_MAX = 2000
 M.FLUSH_WAIT_MS = 5000
 M.ENV_FILE = "/etc/ledgesec/agent.env"
+M.VERSION_FILE = "/usr/local/ledgesec/VERSION"
 
 local ASSETS = {
   css = true, js = true, png = true, jpg = true, jpeg = true, gif = true,
@@ -132,7 +133,11 @@ function M.event_json(ev)
   )
 end
 
-function M.body(site_id, edge_id, events)
+function M.read_version(text)
+  return string.match(tostring(text or ""), "^%s*(%d+%.%d+%.%d+)")
+end
+
+function M.body(site_id, edge_id, events, agent)
   local parts = {}
   for i, ev in ipairs(events) do
     if type(ev) == "string" then
@@ -142,6 +147,13 @@ function M.body(site_id, edge_id, events)
     else
       parts[i] = M.event_json(ev)
     end
+  end
+  local version = M.read_version(agent or "")
+  if version then
+    return string.format(
+      '{"site_id":"%s","edge_id":"%s","agent":"%s","events":[%s]}',
+      esc(site_id), esc(edge_id or "module"), version, table.concat(parts, ",")
+    )
   end
   return string.format(
     '{"site_id":"%s","edge_id":"%s","events":[%s]}',
@@ -419,7 +431,7 @@ function M.flush()
   local items, last = M.collect(function(i) return dict:get("i:" .. i) end, head, tail, cfg.batch_max, M.BODY_MAX)
   local now_ms = math.floor((ngx.now() or 0) * 1000)
   if not M.should_send(items, cfg.batch_min, now_ms, M.FLUSH_WAIT_MS) then return end
-  local payload = M.body(cfg.site_id, cfg.edge_id, items)
+  local payload = M.body(cfg.site_id, cfg.edge_id, items, load_file(M.VERSION_FILE))
   local code = post(cfg.url, payload, M.mac(cfg.secret, payload))
   if not M.http_ok(code) then return end
   local index = head

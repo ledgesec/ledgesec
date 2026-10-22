@@ -247,6 +247,7 @@ fn decide(cfg: &Config, token: &str, peer_ip: &str, now: u64, confirmed: bool) -
     )
 }
 
+#[allow(clippy::too_many_arguments)] // the handoff token is one flat message shared with Lua
 pub fn handoff_token(
     secret: &str,
     site: &str,

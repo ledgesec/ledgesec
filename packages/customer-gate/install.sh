@@ -223,6 +223,7 @@ uninstall() {
     exit 1
   fi
   rm -rf "$PREFIX/lua"
+  rm -f "$PREFIX/VERSION"
   rm -f "$ENV_FILE" /etc/ledgesec/ledgesec.conf /etc/nginx/conf.d/ledgesec.conf
   if [ -n "$conf" ]; then remove_include "$conf"; fi
   rmdir /etc/ledgesec 2>/dev/null || true
@@ -269,6 +270,11 @@ install_all() {
   fi
   mkdir -p "$PREFIX/lua/ledgesec" /etc/ledgesec
   cp "$LUA_SRC/observe.lua" "$LUA_SRC/probes.lua" "$LUA_SRC/token.lua" "$PREFIX/lua/ledgesec/"
+  version_file=$script_dir/../../VERSION
+  if [ -f "$version_file" ]; then
+    install -m 644 "$version_file" "$PREFIX/VERSION"
+    say "version $(tr -d '[:space:]' < "$version_file")"
+  fi
   umask 077
   tmp=$(mktemp)
   {

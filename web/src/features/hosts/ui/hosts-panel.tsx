@@ -101,9 +101,14 @@ export function HostsPanel({ mode }: { mode: "client" | "admin" }) {
               Stored requests stay for 3 years. This host stops taking new ones.
             </p>
           ) : null}
-          <p className="mt-1 text-xs tracking-[0.08em] text-muted-foreground uppercase">{host.collector}</p>
+          <p className="mt-1 text-xs tracking-[0.08em] text-muted-foreground uppercase">
+            {host.collector}
+            {host.agent_version ? ` · agent ${host.agent_version}` : ""}
+          </p>
           {host.owner_email ? <p className="mt-1 text-sm text-muted-foreground">{host.owner_email}</p> : null}
-          {mode === "client" ? <HostInstall hostId={host.id} secret={host.ingest_secret ?? ""} /> : null}
+          {mode === "client" ? (
+            <HostInstall hostId={host.id} secret={host.ingest_secret ?? ""} collector={host.collector} />
+          ) : null}
           {host.sites.length === 0 ? <p className="mt-4 text-sm text-muted-foreground">No sites yet.</p> : null}
           <ul className="mt-3 divide-y divide-cyber-cyan/10">
             {host.sites.map((site) => {

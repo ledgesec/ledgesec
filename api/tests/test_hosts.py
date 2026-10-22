@@ -3,9 +3,11 @@ import json
 import pytest
 
 from app.access.actor import Actor
+from app.access.models import Host
 from app.access.service import (
     assign_host,
     create_host,
+    remember_agent,
     remove_host,
     set_site_enabled,
     split_monitored,
@@ -36,6 +38,27 @@ class Mem:
         self.deleted = row
 
 
+def test_the_host_keeps_the_agent_build():
+    row = Host(id="abcd1234", label="Shop", collector="linux", owner_id="user1", agent_version="")
+
+    class Db:
+        def scalar(self, _statement):
+            return row
+
+        def commit(self):
+            self.committed = True
+
+    db = Db()
+    remember_agent(db, "abcd1234", "0.1.5")
+    assert row.agent_version == "0.1.5"
+    assert db.committed
+    db.committed = False
+    remember_agent(db, "abcd1234", "0.1.5")
+    assert db.committed is False
+    remember_agent(db, "abcd1234", "")
+    assert row.agent_version == "0.1.5"
+
+
 def test_site_name_is_the_hostname_without_a_port():
     assert site_name("Shop.Example:443") == "shop.example"
     assert site_name("shop.example.") == "shop.example"
@@ -61,8 +84,8 @@ def test_a_blank_label_and_an_unavailable_collector_are_refused():
         create_host(Mem(), "   ", "nginx", "user1")
     with pytest.raises(ValueError, match="unavailable"):
         create_host(Mem(), "Shop", "dns", "user1")
-    with pytest.raises(ValueError, match="unavailable"):
-        create_host(Mem(), "Shop", "linux", "user1")
+    row = create_host(Mem(), "Shop", "linux", "user1")
+    assert row["collector"] == "linux"
     with pytest.raises(ValueError, match="unavailable"):
         create_host(Mem(), "Shop", "apache", "user1")
 

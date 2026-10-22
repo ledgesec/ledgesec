@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.observation.ingest import accept_batch, to_ipv6
+from app.observation.ingest import accept_batch, batch_note, to_ipv6
 from app.observation.service import show_ip
 
 
@@ -15,6 +15,14 @@ def batch(events, site_id="demo", edge_id="eu"):
 
 def mac_for(secret, body):
     return hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+
+
+def test_a_batch_names_its_agent_build():
+    host_id, agent = batch_note(b'{"site_id":"demo","agent":"0.1.5"}')
+    assert host_id == "demo"
+    assert agent == "0.1.5"
+    assert batch_note(b'{"site_id":"demo","agent":"latest"}') == ("demo", "")
+    assert batch_note(b"not json") == ("", "")
 
 
 def test_accept_strips_the_query_and_stores_an_observe_line(monkeypatch):

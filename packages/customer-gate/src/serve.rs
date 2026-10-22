@@ -312,6 +312,37 @@ fn find_sep(buf: &[u8]) -> Option<usize> {
     buf.windows(4).position(|w| w == b"\r\n\r\n")
 }
 
+fn write_reply(sock: &mut TcpStream, reply: &Reply) -> std::io::Result<()> {
+    let phrase = match reply.status {
+        200 => "OK",
+        302 => "Found",
+        400 => "Bad Request",
+        403 => "Forbidden",
+        404 => "Not Found",
+        421 => "Misdirected Request",
+        _ => "Error",
+    };
+    let mut head = format!("HTTP/1.1 {} {}\r\n", reply.status, phrase);
+    for (name, value) in &reply.headers {
+        if value.contains(['\r', '\n']) {
+            continue;
+        }
+        head.push_str(name);
+        head.push_str(": ");
+        head.push_str(value);
+        head.push_str("\r\n");
+    }
+    if header(reply, "content-length").is_none() {
+        head.push_str("Content-Length: ");
+        head.push_str(&reply.body.len().to_string());
+        head.push_str("\r\n");
+    }
+    head.push_str("Connection: close\r\n\r\n");
+    sock.write_all(head.as_bytes())?;
+    sock.write_all(reply.body.as_bytes())?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -435,35 +466,4 @@ mod tests {
         assert!(challenge.contains("Continue"), "{challenge}");
         assert!(!challenge.contains("X-Ledgesec-Origin"), "{challenge}");
     }
-}
-
-fn write_reply(sock: &mut TcpStream, reply: &Reply) -> std::io::Result<()> {
-    let phrase = match reply.status {
-        200 => "OK",
-        302 => "Found",
-        400 => "Bad Request",
-        403 => "Forbidden",
-        404 => "Not Found",
-        421 => "Misdirected Request",
-        _ => "Error",
-    };
-    let mut head = format!("HTTP/1.1 {} {}\r\n", reply.status, phrase);
-    for (name, value) in &reply.headers {
-        if value.contains(['\r', '\n']) {
-            continue;
-        }
-        head.push_str(name);
-        head.push_str(": ");
-        head.push_str(value);
-        head.push_str("\r\n");
-    }
-    if header(reply, "content-length").is_none() {
-        head.push_str("Content-Length: ");
-        head.push_str(&reply.body.len().to_string());
-        head.push_str("\r\n");
-    }
-    head.push_str("Connection: close\r\n\r\n");
-    sock.write_all(head.as_bytes())?;
-    sock.write_all(reply.body.as_bytes())?;
-    Ok(())
 }

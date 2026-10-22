@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createHost, readAccounts, type AccountRecord, type HostRecord } from "@/features/hosts/api";
+import { arrivingSites } from "@/features/hosts/arrival";
+import { createHost, readAccounts, readHosts, type AccountRecord, type HostRecord, type HostSite } from "@/features/hosts/api";
 import { hostCollectorSchema, hostLabelSchema, hostOwnerSchema } from "@/features/hosts/schema";
 import { HostInstall } from "@/features/hosts/ui/host-install";
 import { apiError } from "@/shared/lib/api-error";
@@ -13,12 +14,13 @@ const steps = [
   { id: "name", label: "Name" },
   { id: "connection", label: "Connection" },
   { id: "install", label: "Install" },
+  { id: "check", label: "Check" },
 ] as const;
 
 const methods = [
   { id: "nginx", title: "Nginx", detail: "OpenResty module on the server.", available: true },
   { id: "dns", title: "DNS", detail: "Send traffic through the edge.", available: false },
-  { id: "linux", title: "Linux daemon", detail: "A separate process that already knows where to look.", available: false },
+  { id: "linux", title: "Linux daemon", detail: "A process reads the nginx log. Nginx itself stays as it is.", available: true },
   { id: "apache", title: "Apache", detail: "Apache module on the server.", available: false },
 ] as const;
 
@@ -36,6 +38,8 @@ export function AddHostWizard({ mode, onDone }: { mode: "client" | "admin"; onDo
   const [collectorError, setCollectorError] = useState("");
   const [pending, setPending] = useState(false);
   const [created, setCreated] = useState<HostRecord | null>(null);
+  const [arrived, setArrived] = useState<HostSite[] | null>(null);
+  const [checkError, setCheckError] = useState(false);
   const index = steps.findIndex((item) => item.id === step);
   const ownerEmail = accounts?.find((account) => account.id === ownerId)?.email ?? "";
 
@@ -53,6 +57,31 @@ export function AddHostWizard({ mode, onDone }: { mode: "client" | "admin"; onDo
       cancelled = true;
     };
   }, [mode]);
+
+  useEffect(() => {
+    if (step !== "check" || !created) return;
+    let cancelled = false;
+    let timer = 0;
+    const look = () => {
+      readHosts()
+        .then((rows) => {
+          if (cancelled) return;
+          const sites = arrivingSites(rows, created.id);
+          setArrived(sites);
+          setCheckError(false);
+          if (sites.length > 0) window.clearInterval(timer);
+        })
+        .catch(() => {
+          if (!cancelled) setCheckError(true);
+        });
+    };
+    timer = window.setInterval(look, 5000);
+    look();
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [step, created]);
 
   return (
     <section className="glass-panel mx-auto w-full max-w-2xl p-6 sm:p-8">
@@ -144,7 +173,7 @@ export function AddHostWizard({ mode, onDone }: { mode: "client" | "admin"; onDo
         <div className="relative mt-8 grid gap-6">
           <div>
             <h2 className="text-2xl font-bold">How should it report?</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Nginx is available. The other connections stay in the list until they can be turned on.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Nginx and the Linux daemon are available. DNS and Apache stay in the list until they can be turned on.</p>
           </div>
           <fieldset>
             <legend className="sr-only">Connection</legend>
@@ -224,12 +253,52 @@ export function AddHostWizard({ mode, onDone }: { mode: "client" | "admin"; onDo
           ) : (
             <div>
               <h2 className="text-2xl font-bold">{created.label} is ready.</h2>
-              <HostInstall hostId={created.id} secret={created.ingest_secret ?? ""} />
+              <HostInstall hostId={created.id} secret={created.ingest_secret ?? ""} collector={created.collector} />
             </div>
           )}
-          <Button type="button" onClick={onDone}>
-            Done
+          <Button
+            type="button"
+            onClick={() => {
+              setArrived(null);
+              setCheckError(false);
+              setStep("check");
+            }}
+          >
+            Check
           </Button>
+        </div>
+      ) : null}
+
+      {step === "check" && created ? (
+        <div className="mt-8 grid gap-6">
+          <div>
+            <h2 className="text-2xl font-bold">{arrived && arrived.length > 0 ? "Requests are arriving." : "Waiting for the first request."}</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Open the site. This step finishes when its name arrives from the Host header. A missing file or an error is sent at once. Ordinary pages are a sample.
+            </p>
+          </div>
+          <div className="min-h-5">
+            {checkError ? <p className="text-sm text-destructive">The host list did not answer.</p> : null}
+            {!checkError && arrived === null ? <p className="text-sm text-muted-foreground">Reading the host.</p> : null}
+            {!checkError && arrived && arrived.length === 0 ? <p className="text-sm text-muted-foreground">No request yet.</p> : null}
+            {!checkError && arrived && arrived.length > 0 ? (
+              <ul className="grid gap-1">
+                {arrived.map((site) => (
+                  <li key={site.name} className="font-mono text-sm text-cyber-green">
+                    {site.name}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => setStep("install")}>
+              Back
+            </Button>
+            <Button type="button" disabled={!arrived || arrived.length === 0} onClick={onDone}>
+              Done
+            </Button>
+          </div>
         </div>
       ) : null}
     </section>

@@ -21,6 +21,7 @@ from app.access.repository import (
     list_host_site_rows,
     list_site_rows,
     list_user_rows,
+    note_agent_version,
     save,
     site_flags,
     undo,
@@ -31,7 +32,7 @@ from app.codes import Code
 from app.ids import EMAIL, SITE_ID, site_name
 from app.observation.ingest import ingest_secret
 
-AVAILABLE = {"nginx"}
+AVAILABLE = {"nginx", "linux"}
 COLLECTORS = {"nginx", "dns", "linux", "apache"}
 
 
@@ -126,12 +127,19 @@ def public_host(row: Host, sites: list[HostSite], owner_email: str = "", install
         "id": row.id,
         "label": row.label,
         "collector": row.collector,
+        "agent_version": row.agent_version or "",
         "owner_email": owner_email,
         "sites": [{"name": site.name, "enabled": bool(site.enabled)} for site in sites],
     }
     if install_secret:
         body["ingest_secret"] = install_secret
     return body
+
+
+def remember_agent(db: Session, host_id: str, version: str) -> None:
+    if version == "":
+        return
+    note_agent_version(db, host_id, version)
 
 
 def assign_host(db: Session, actor: Actor, label: str, collector: str, owner_id: str) -> dict:

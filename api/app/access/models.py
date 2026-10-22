@@ -24,6 +24,7 @@ class Host(Base):
     label: Mapped[str] = mapped_column(Text)
     collector: Mapped[str] = mapped_column(Text)
     owner_id: Mapped[str | None] = mapped_column(Text, ForeignKey("users.id"))
+    agent_version: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

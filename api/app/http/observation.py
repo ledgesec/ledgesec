@@ -2,14 +2,20 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.access.service import Unscoped, filter_monitored, journal_scope, shows_ip
+from app.access.service import (
+    Unscoped,
+    filter_monitored,
+    journal_scope,
+    remember_agent,
+    shows_ip,
+)
 from app.codes import Code
 from app.errors import ApiError
 from app.http.body import read_body
 from app.http.deps import ActorDep, AdminDep, Db
 from app.http.schemas import AddressesOut, ObservationOut, StoredOut, SummaryOut
 from app.observation.addresses import address_panel
-from app.observation.ingest import INGEST_BODY_LIMIT, accept_batch
+from app.observation.ingest import INGEST_BODY_LIMIT, accept_batch, batch_note
 from app.observation.service import fetch_events, fetch_summary, insert_observations
 from app.observation.summary import summarize
 
@@ -68,6 +74,8 @@ async def ingest(request: Request, db: Db) -> JSONResponse:
     try:
         lines = accept_batch(mac, body)
         lines = filter_monitored(db, lines)
+        host_id, agent = batch_note(body)
+        remember_agent(db, host_id, agent)
         stored = insert_observations(lines)
     except PermissionError as exc:
         raise ApiError(401, str(exc)) from exc

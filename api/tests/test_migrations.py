@@ -37,7 +37,7 @@ def test_stamp_only_an_existing_schema_without_a_version():
 def test_head_revision_follows_the_baseline():
     script = ScriptDirectory.from_config(alembic_config())
     assert BASELINE == "0001"
-    assert script.get_current_head() == "0003"
+    assert script.get_current_head() == "0004"
 
 
 def test_offline_upgrade_creates_the_tables(capsys):
@@ -49,4 +49,5 @@ def test_offline_upgrade_creates_the_tables(capsys):
     assert "CREATE TABLE hosts" in sql
     assert "CREATE TABLE host_sites" in sql
     assert "owner_id" in sql
+    assert "agent_version" in sql
     assert "alembic_version" in sql

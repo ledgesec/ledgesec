@@ -11,15 +11,15 @@ test("a host name is trimmed and required", () => {
   if (!blank.success) assert.equal(blank.error.flatten().fieldErrors.label?.[0], "Enter a name for this host.");
 });
 
-test("only the nginx connection can be added", () => {
+test("nginx and the linux daemon can be added", () => {
   assert.equal(hostCollectorSchema.safeParse({ collector: "nginx" }).success, true);
+  assert.equal(hostCollectorSchema.safeParse({ collector: "linux" }).success, true);
   const apache = hostCollectorSchema.safeParse({ collector: "apache" });
   assert.equal(apache.success, false);
   if (!apache.success) {
-    assert.equal(apache.error.flatten().fieldErrors.collector?.[0], "Nginx is the connection available now.");
+    assert.equal(apache.error.flatten().fieldErrors.collector?.[0], "Nginx and the Linux daemon can be added now.");
   }
   assert.equal(hostCollectorSchema.safeParse({ collector: "dns" }).success, false);
-  assert.equal(hostCollectorSchema.safeParse({ collector: "linux" }).success, false);
 });
 
 test("an account is required when an admin adds a host", () => {

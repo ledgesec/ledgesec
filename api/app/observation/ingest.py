@@ -27,6 +27,18 @@ def ingest_secret() -> str:
     return os.environ.get("LEDGESEC_INGEST_SECRET", "")
 
 
+def batch_note(body: bytes) -> tuple[str, str]:
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError:
+        return "", ""
+    host_id = str(parsed.get("site_id") or "")
+    agent = str(parsed.get("agent") or "").strip()
+    if not re.fullmatch(r"\d+\.\d+\.\d+", agent):
+        agent = ""
+    return host_id, agent
+
+
 def accept_batch(mac: str, body: bytes) -> list[str]:
     secret = ingest_secret()
     if secret == "":

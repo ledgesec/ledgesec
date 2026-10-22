@@ -119,6 +119,7 @@ class HostOut(BaseModel):
     id: str
     label: str
     collector: str
+    agent_version: str = ""
     owner_email: str = ""
     ingest_secret: str = ""
     sites: list[HostSiteOut]

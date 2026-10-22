@@ -5,7 +5,7 @@ export const hostLabelSchema = z.object({
 });
 
 export const hostCollectorSchema = z.object({
-  collector: z.string().refine((value) => value === "nginx", "Nginx is the connection available now."),
+  collector: z.string().refine((value) => value === "nginx" || value === "linux", "Nginx and the Linux daemon can be added now."),
 });
 
 export const hostOwnerSchema = z.object({

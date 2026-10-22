@@ -48,6 +48,14 @@ def delete_host_row(db: Session, host_id: str, owner_id: str | None) -> bool:
     return True
 
 
+def note_agent_version(db: Session, host_id: str, version: str) -> None:
+    row = db.scalar(select(Host).where(Host.id == host_id))
+    if not isinstance(row, Host) or row.agent_version == version:
+        return
+    row.agent_version = version
+    db.commit()
+
+
 def insert_host(db: Session, host_id: str, label: str, collector: str, owner_id: str) -> Host:
     row = Host(id=host_id, label=label, collector=collector, owner_id=owner_id)
     db.add(row)

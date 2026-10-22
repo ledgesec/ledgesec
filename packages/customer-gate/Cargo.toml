@@ -5,4 +5,9 @@ edition = "2021"
 description = "Customer gate that hands an undecided request to the Ledgesec contour"
 license = "MIT"
 
+[[bin]]
+name = "ledgesec-agent"
+path = "src/bin/ledgesec-agent.rs"
+
 [dependencies]
+ureq = { version = "2.12.1", default-features = false, features = ["tls"] }

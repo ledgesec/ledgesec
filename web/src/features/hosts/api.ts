@@ -6,6 +6,7 @@ export type HostRecord = {
   id: string;
   label: string;
   collector: string;
+  agent_version?: string;
   owner_email: string;
   ingest_secret?: string;
   sites: HostSite[];
