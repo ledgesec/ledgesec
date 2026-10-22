@@ -56,13 +56,13 @@ export function SelectField({
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>
         <SelectPrimitive.Positioner sideOffset={6} className="z-50">
-          <SelectPrimitive.Popup className="max-h-60 min-w-[var(--anchor-width)] overflow-y-auto rounded-lg border border-cyber-cyan/20 bg-cyber-navy p-1 text-sm text-foreground shadow-xl outline-none">
+          <SelectPrimitive.Popup className="max-h-60 min-w-[var(--anchor-width)] overflow-y-auto rounded-lg border border-cyber-cyan/20 bg-cyber-navy p-1 text-sm text-slate-50 shadow-xl outline-none">
             <SelectPrimitive.List className="outline-none">
               {options.map((option) => (
                 <SelectPrimitive.Item
                   key={option.value || placeholder || label}
                   value={option.value}
-                  className="relative flex cursor-default items-center gap-2 rounded-md py-1.5 pr-2 pl-7 outline-none select-none data-highlighted:bg-cyber-cyan/10 data-disabled:opacity-50"
+                  className="relative flex cursor-default items-center gap-2 rounded-md py-1.5 pr-2 pl-7 text-slate-50 outline-none select-none data-highlighted:bg-cyber-cyan/15 data-disabled:opacity-50"
                 >
                   <SelectPrimitive.ItemIndicator className="absolute left-2 flex items-center text-cyber-cyan">
                     <Check className="size-3.5" />
