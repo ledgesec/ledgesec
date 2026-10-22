@@ -5,6 +5,7 @@ import re
 from app.codes import Code
 
 PAGE = 500
+FIND_LIMIT = 200
 _TS = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?Z$")
 _IP = re.compile(r"^[0-9A-Fa-f:.]*$")
 _NAME = re.compile(r"^[^\x00-\x1f]{0,253}$")

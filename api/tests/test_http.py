@@ -179,12 +179,13 @@ def test_site_user_observations_hide_the_address(monkeypatch):
     holder.hosts = [Host(id="f274178d", label="web7.pro", collector="linux", owner_id=USER_ID)]
     seen = {}
 
-    def fake(host_ids=None, cursor=None, direction="next", ip=None, path=None):
+    def fake(host_ids=None, cursor=None, direction="next", ip=None, path=None, **extra):
         seen["hosts"] = host_ids
         seen["cursor"] = cursor
         seen["direction"] = direction
         seen["ip"] = ip
         seen["path"] = path
+        seen["extra"] = extra
         return [event_row()], None, None
 
     monkeypatch.setattr("app.http.observation.fetch_event_page", fake)
@@ -197,7 +198,11 @@ def test_site_user_observations_hide_the_address(monkeypatch):
     assert row["marker"]["code"] == "env"
     assert response.json()["next"] is None
     assert response.json()["prev"] is None
-    assert seen == {"hosts": ["f274178d"], "cursor": None, "direction": "next", "ip": None, "path": None}
+    assert seen["hosts"] == ["f274178d"]
+    assert seen["ip"] is None
+    assert seen["extra"]["wide"] is False
+    assert seen["extra"]["q"] is None
+    assert seen["extra"]["edge"] is None
 
 
 def test_user_without_a_host_gets_an_empty_journal(monkeypatch):
@@ -224,7 +229,7 @@ def test_admin_summary_and_addresses(monkeypatch):
     monkeypatch.setattr("app.http.observation.fetch_summary", lambda site_id=None: summarize([]))
     monkeypatch.setattr(
         "app.http.observation.fetch_address_page",
-        lambda cursor=None, direction="next": (address_panel([event_row()]), "next-cursor", None),
+        lambda cursor=None, direction="next", **_extra: (address_panel([event_row()]), "next-cursor", None),
     )
     client = client_for(holder)
     client.cookies.set("ledgesec_session", sign_session(USER_ID))

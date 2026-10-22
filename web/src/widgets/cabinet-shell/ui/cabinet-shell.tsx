@@ -2,38 +2,50 @@
 
 import { useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Globe, LayoutDashboard, LogOut, Radio, ScanSearch, ScrollText, Server, ShieldAlert } from "lucide-react";
+import Link from "next/link";
+import {
+  ADDRESSES,
+  HOSTS,
+  OVERVIEW,
+  PROBES,
+  REQUESTS,
+  SITES,
+  sectionHref,
+  type CabinetSection,
+} from "@/shared/lib/cabinet-section";
 import { ADMIN, type CabinetMode } from "@/shared/lib/role";
 import { Button } from "@/shared/ui/button";
-import { LIVE, RECORDING, pulseCells } from "@/widgets/cabinet-shell/pulse";
+import { Skeleton } from "@/shared/ui/skeleton";
+import { LIVE, PULSE_PROBES, PULSE_REQUESTS, PULSE_RPS, RECORDING, pulseCells } from "@/widgets/cabinet-shell/pulse";
 import { formatRps } from "@/widgets/world-map/places";
 
-export type CabinetSection = "overview" | "probes" | "requests" | "addresses" | "sites" | "hosts";
+export type { CabinetSection };
 
 export type CabinetPulse = { requests: number; probes: number; rps: number };
 
 const items: { id: CabinetSection; label: string; icon: typeof LayoutDashboard; admin?: boolean }[] = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "probes", label: "Probes", icon: ScanSearch },
-  { id: "requests", label: "Requests", icon: ScrollText },
-  { id: "addresses", label: "Addresses", icon: Radio, admin: true },
-  { id: "sites", label: "Sites", icon: Globe },
-  { id: "hosts", label: "Hosts", icon: Server },
+  { id: OVERVIEW, label: "Overview", icon: LayoutDashboard },
+  { id: PROBES, label: "Probes", icon: ScanSearch },
+  { id: REQUESTS, label: "Requests", icon: ScrollText },
+  { id: ADDRESSES, label: "Addresses", icon: Radio, admin: true },
+  { id: SITES, label: "Sites", icon: Globe },
+  { id: HOSTS, label: "Hosts", icon: Server },
 ];
 
 export function CabinetShell({
+  host,
   mode,
   email,
   section,
   pulse,
-  onSection,
   onSignOut,
   children,
 }: {
+  host: string;
   mode: CabinetMode;
   email: string;
   section: CabinetSection;
   pulse: CabinetPulse | null;
-  onSection: (section: CabinetSection) => void;
   onSignOut: () => void;
   children: ReactNode;
 }) {
@@ -64,7 +76,7 @@ export function CabinetShell({
             {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
           </button>
         </div>
-        <Nav nav={nav} section={section} pulse={pulse} onSection={onSection} collapsed={collapsed} />
+        <Nav host={host} mode={mode} nav={nav} section={section} pulse={pulse} collapsed={collapsed} />
         <SignOut onSignOut={onSignOut} collapsed={collapsed} />
       </aside>
       <div className={`flex min-w-0 flex-1 flex-col ${pad}`}>
@@ -79,7 +91,7 @@ export function CabinetShell({
         </header>
         <nav className="flex gap-2 overflow-x-auto border-b border-cyber-cyan/10 px-4 py-3 lg:hidden">
           {nav.map((item) => (
-            <SectionButton key={item.id} item={item} active={section === item.id} pulse={pulse} onSection={onSection} />
+            <SectionLink key={item.id} host={host} mode={mode} item={item} active={section === item.id} pulse={pulse} />
           ))}
           <Button variant="ghost" size="sm" onClick={onSignOut}>
             Sign out
@@ -92,16 +104,18 @@ export function CabinetShell({
 }
 
 function Nav({
+  host,
+  mode,
   nav,
   section,
   pulse,
-  onSection,
   collapsed,
 }: {
+  host: string;
+  mode: CabinetMode;
   nav: typeof items;
   section: CabinetSection;
   pulse: CabinetPulse | null;
-  onSection: (section: CabinetSection) => void;
   collapsed: boolean;
 }) {
   const cells = pulse ? pulseCells(pulse.requests, pulse.probes, formatRps(pulse.rps)) : null;
@@ -112,11 +126,15 @@ function Nav({
           <span className="size-2 shrink-0 animate-pulse rounded-full bg-cyber-green shadow-[0_0_12px_rgb(0_255_136/0.9)]" />
           {collapsed ? null : <span className="text-xs font-semibold tracking-[0.16em] text-cyber-green uppercase">{RECORDING}</span>}
         </div>
-        {cells && !collapsed ? (
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {cells.map((cell) => (
+        {!collapsed ? (
+          <div className="mt-3 grid grid-cols-3 gap-2" aria-busy={cells ? undefined : true}>
+            {(cells ?? [PULSE_REQUESTS, PULSE_PROBES, PULSE_RPS].map((label) => ({ label, value: null }))).map((cell) => (
               <div key={cell.label} className="rounded-lg bg-black/40 px-1 py-2 text-center">
-                <p className="font-mono text-sm font-semibold text-white">{cell.value}</p>
+                {cell.value === null ? (
+                  <Skeleton className="mx-auto h-4 w-8" />
+                ) : (
+                  <p className="font-mono text-sm font-semibold text-white">{cell.value}</p>
+                )}
                 <p className="mt-0.5 text-[10px] tracking-wide text-white/45 uppercase">{cell.label}</p>
               </div>
             ))}
@@ -124,31 +142,33 @@ function Nav({
         ) : null}
       </div>
       {nav.map((item) => (
-        <SectionButton key={item.id} item={item} active={section === item.id} pulse={pulse} onSection={onSection} collapsed={collapsed} />
+        <SectionLink key={item.id} host={host} mode={mode} item={item} active={section === item.id} pulse={pulse} collapsed={collapsed} />
       ))}
     </nav>
   );
 }
 
-function SectionButton({
+function SectionLink({
+  host,
+  mode,
   item,
   active,
   pulse,
-  onSection,
   collapsed = false,
 }: {
+  host: string;
+  mode: CabinetMode;
   item: (typeof items)[number];
   active: boolean;
   pulse: CabinetPulse | null;
-  onSection: (section: CabinetSection) => void;
   collapsed?: boolean;
 }) {
   const Icon = item.icon;
   return (
-    <button
-      type="button"
-      onClick={() => onSection(item.id)}
-      className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+    <Link
+      href={sectionHref(host, mode, item.id)}
+      aria-current={active ? "page" : undefined}
+      className={`group relative flex w-full shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
         active
           ? "border border-cyber-cyan/50 bg-cyber-cyan/10 text-white shadow-[0_0_22px_rgb(0_240_255/0.08)]"
           : "border border-transparent text-white/45 hover:translate-x-0.5 hover:bg-white/10 hover:text-white active:translate-x-1 active:bg-white/15 active:text-white"
@@ -158,7 +178,7 @@ function SectionButton({
       <Icon className={`size-5 shrink-0 transition-colors duration-200 ${active ? "text-cyber-cyan" : "text-white/45 group-hover:text-white group-active:text-white"}`} />
       {collapsed ? null : <span className="flex-1 text-left">{item.label}</span>}
       {collapsed ? null : <ItemMark item={item} active={active} pulse={pulse} />}
-    </button>
+    </Link>
   );
 }
 

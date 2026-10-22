@@ -1,5 +1,6 @@
 import type { AddressRow, Observation, Summary } from "@/entities/observation/model";
 import { apiError } from "@/shared/lib/api-error";
+import { BLANK_FIELDS, fieldParams, type JournalFields } from "@/widgets/table-tools/query";
 
 type ApiObservation = {
   ts: string;
@@ -9,6 +10,12 @@ type ApiObservation = {
   ip?: string;
   country?: string;
   request_time_ms?: number;
+  method?: string;
+  status?: number;
+  ua?: string;
+  bytes_sent?: number;
+  protocol?: string;
+  tls?: string;
   marker: { code: string; label: string } | null;
 };
 
@@ -20,6 +27,7 @@ type ApiAddress = {
   probe_label: string;
   sites: string[];
   country?: string;
+  ua?: string;
   paths?: string[];
   last_ts?: string;
   requests?: number;
@@ -45,8 +53,10 @@ export async function readObservations(
   direction: "next" | "prev" = "next",
   ip = "",
   path = "",
+  fields: JournalFields = BLANK_FIELDS,
+  admin = false,
 ): Promise<CursorPage<Observation>> {
-  const extra: Record<string, string> = {};
+  const extra = fieldParams(fields, admin);
   if (ip) extra.ip = ip;
   if (path) extra.path = path;
   const response = await fetch(`/api/v1/observations${cursorQuery(cursor, direction, extra)}`, {
@@ -63,6 +73,12 @@ export async function readObservations(
       ip: row.ip ?? "",
       country: row.country ?? "",
       tookMs: row.request_time_ms ?? 0,
+      method: row.method ?? "",
+      status: row.status ?? 0,
+      ua: row.ua ?? "",
+      bytesSent: row.bytes_sent ?? 0,
+      protocol: row.protocol ?? "",
+      tls: row.tls ?? "",
       marker: row.marker,
     })),
     next: body.next ?? null,
@@ -87,8 +103,11 @@ export async function readSummary(): Promise<Summary> {
 export async function readAddresses(
   cursor: string | null = null,
   direction: "next" | "prev" = "next",
+  fields: JournalFields = BLANK_FIELDS,
 ): Promise<CursorPage<AddressRow>> {
-  const response = await fetch(`/api/v1/addresses${cursorQuery(cursor, direction)}`, { credentials: "include" });
+  const response = await fetch(`/api/v1/addresses${cursorQuery(cursor, direction, fieldParams(fields, true))}`, {
+    credentials: "include",
+  });
   if (response.status === 401) return { rows: [], next: null, prev: null };
   if (!response.ok) throw new Error(apiError.journal);
   const body = (await response.json()) as { addresses: ApiAddress[]; next?: string | null; prev?: string | null };
@@ -101,6 +120,7 @@ export async function readAddresses(
       probeLabel: row.probe_label,
       sites: row.sites,
       country: row.country ?? "",
+      ua: row.ua ?? "",
       paths: row.paths ?? [],
       lastTs: row.last_ts ?? "",
       requests: row.requests,

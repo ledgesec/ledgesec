@@ -1,6 +1,6 @@
 //! The Linux daemon posts the same batch as the Lua module.
-//! An nginx line is `$msec $remote_addr $host "$request" $status $request_time`.
-//! A line without `$request_time` is still a hit, with no duration.
+//! An nginx line is `$msec $remote_addr $host "$request" $status $request_time "$http_user_agent"`.
+//! A line without the duration or the agent is still a hit.
 //! A Coolify proxy line is Traefik's JSON access log. Query, body, Cookie, and Referer are dropped.
 
 use crate::hash::hmac_sha256;
@@ -14,6 +14,9 @@ pub fn product_version() -> &'static str {
 
 const PATH_MAX: usize = 160;
 const HOST_MAX: usize = 253;
+const UA_MAX: usize = 200;
+const PROTOCOL_MAX: usize = 24;
+const TLS_MAX: usize = 64;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Hit {
@@ -24,6 +27,10 @@ pub struct Hit {
     pub path: String,
     pub status: u16,
     pub request_time_ms: u32,
+    pub ua: String,
+    pub bytes_sent: u64,
+    pub protocol: String,
+    pub tls: String,
     pub routed: bool,
 }
 
@@ -43,7 +50,7 @@ fn parse_nginx(line: &str) -> Option<Hit> {
     let ts_ms = parse_msec(parts.next()?)?;
     let ip = clean_ip(parts.next()?);
     let host = clean_host(parts.next()?)?;
-    let (method, path, status, request_time_ms) = split_request(parts.next()?)?;
+    let (method, path, status, request_time_ms, protocol, ua) = split_request(parts.next()?)?;
     let path = clean_path(&path)?;
     if path.starts_with("/.well-known/acme-challenge/") {
         return None;
@@ -56,6 +63,10 @@ fn parse_nginx(line: &str) -> Option<Hit> {
         path,
         status,
         request_time_ms,
+        ua,
+        bytes_sent: 0,
+        protocol,
+        tls: String::new(),
         routed: true,
     })
 }
@@ -72,14 +83,21 @@ pub fn admit(status: u16, percent: u8, roll: u8) -> Option<bool> {
 }
 
 pub fn event_json(hit: &Hit, sampled: bool) -> String {
-    let duration = if hit.request_time_ms > 0 {
-        format!(r#","request_time_ms":{}"#, hit.request_time_ms)
-    } else {
-        String::new()
-    };
-    let routed = if hit.routed { String::new() } else { r#","routed":false"#.to_string() };
+    let mut extra = String::new();
+    if hit.request_time_ms > 0 {
+        extra.push_str(&format!(r#","request_time_ms":{}"#, hit.request_time_ms));
+    }
+    push_text(&mut extra, "ua", &hit.ua);
+    if hit.bytes_sent > 0 {
+        extra.push_str(&format!(r#","bytes_sent":{}"#, hit.bytes_sent));
+    }
+    push_text(&mut extra, "protocol", &hit.protocol);
+    push_text(&mut extra, "tls", &hit.tls);
+    if !hit.routed {
+        extra.push_str(r#","routed":false"#);
+    }
     format!(
-        "{{\"ts\":{},\"method\":\"{}\",\"path\":\"{}\",\"route_group\":\"{}\",\"status\":{},\"ip\":\"{}\",\"host\":\"{}\",\"sampled\":{}{}{}}}",
+        "{{\"ts\":{},\"method\":\"{}\",\"path\":\"{}\",\"route_group\":\"{}\",\"status\":{},\"ip\":\"{}\",\"host\":\"{}\",\"sampled\":{}{}}}",
         hit.ts_ms,
         esc(&hit.method),
         esc(&hit.path),
@@ -88,9 +106,15 @@ pub fn event_json(hit: &Hit, sampled: bool) -> String {
         esc(&hit.ip),
         esc(&hit.host),
         if sampled { "true" } else { "false" },
-        duration,
-        routed,
+        extra,
     )
+}
+
+fn push_text(extra: &mut String, key: &str, value: &str) {
+    if value.is_empty() {
+        return;
+    }
+    extra.push_str(&format!(r#","{key}":"{}""#, esc(value)));
 }
 
 pub fn batch_body(site_id: &str, edge_id: &str, events: &[String]) -> String {
@@ -145,8 +169,75 @@ fn parse_proxy(line: &str) -> Option<Hit> {
         path,
         status,
         request_time_ms: duration_ms(value.get("Duration")),
+        ua: header_value(&value, "request_User-Agent"),
+        bytes_sent: content_size(value.get("DownstreamContentSize")),
+        protocol: client_protocol(
+            value.get("RequestScheme").and_then(|item| item.as_str()).unwrap_or(""),
+            value.get("RequestProtocol").and_then(|item| item.as_str()).unwrap_or(""),
+        ),
+        tls: tls_name(
+            value.get("TLSVersion").and_then(|item| item.as_str()).unwrap_or(""),
+            value.get("TLSCipher").and_then(|item| item.as_str()).unwrap_or(""),
+        ),
         routed,
     })
+}
+
+fn header_value(value: &serde_json::Value, key: &str) -> String {
+    let Some(item) = value.get(key) else {
+        return String::new();
+    };
+    let text = item.as_str().or_else(|| item.as_array().and_then(|list| list.first()).and_then(|part| part.as_str()));
+    clip(text.unwrap_or(""), UA_MAX)
+}
+
+fn content_size(value: Option<&serde_json::Value>) -> u64 {
+    value.and_then(|item| item.as_u64().or_else(|| item.as_str().and_then(|text| text.parse().ok()))).unwrap_or(0)
+}
+
+fn tls_name(version: &str, cipher: &str) -> String {
+    let version = clip(version, TLS_MAX);
+    let cipher = clip(cipher, TLS_MAX);
+    let text = match (version.is_empty(), cipher.is_empty()) {
+        (true, true) => return String::new(),
+        (false, true) => version,
+        (true, false) => cipher,
+        (false, false) => format!("{version} {cipher}"),
+    };
+    keep_token(&text, TLS_MAX, &['.', '_', '/', ' '])
+}
+
+fn protocol_name(value: &str) -> String {
+    keep_token(value, PROTOCOL_MAX, &['/', '.'])
+}
+
+fn client_protocol(scheme: &str, protocol: &str) -> String {
+    let scheme = keep_token(scheme, 8, &[]);
+    let scheme = if scheme == "http" || scheme == "https" { scheme } else { String::new() };
+    let protocol = protocol_name(protocol);
+    match (scheme.is_empty(), protocol.is_empty()) {
+        (false, false) => format!("{scheme} {protocol}"),
+        (false, true) => scheme,
+        (true, false) => protocol,
+        (true, true) => String::new(),
+    }
+}
+
+fn clip(value: &str, max: usize) -> String {
+    let text: String = value.chars().filter(|c| !c.is_control()).collect();
+    let mut end = text.len().min(max);
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    text[..end].to_string()
+}
+
+fn keep_token(value: &str, max: usize, extra: &[char]) -> String {
+    let text = clip(value, max);
+    if text.is_empty() || text.chars().any(|c| !c.is_ascii_alphanumeric() && !extra.contains(&c)) {
+        return String::new();
+    }
+    text
 }
 
 fn application_router(name: &str) -> bool {
@@ -235,21 +326,31 @@ fn clean_path(value: &str) -> Option<String> {
     Some(path)
 }
 
-fn split_request(rest: &str) -> Option<(String, String, u16, u32)> {
+fn split_request(rest: &str) -> Option<(String, String, u16, u32, String, String)> {
     let rest = rest.trim();
     let start = rest.find('"')?;
-    let end = rest.rfind('"')?;
-    if end <= start {
-        return None;
-    }
+    let end = rest[start + 1..].find('"')? + start + 1;
     let request = &rest[start + 1..end];
-    let mut tail = rest[end + 1..].split_whitespace();
-    let status: u16 = tail.next()?.parse().ok()?;
-    let request_time_ms = tail.next().map(request_time_ms).unwrap_or(0);
+    let mut tail = rest[end + 1..].trim_start();
+    let status_end = tail.find(|c: char| c.is_whitespace()).unwrap_or(tail.len());
+    let status: u16 = tail[..status_end].parse().ok()?;
+    tail = tail[status_end..].trim_start();
+    let mut took_ms = 0;
+    if !tail.is_empty() && !tail.starts_with('"') {
+        let token_end = tail.find(|c: char| c.is_whitespace()).unwrap_or(tail.len());
+        took_ms = request_time_ms(&tail[..token_end]);
+        tail = tail[token_end..].trim_start();
+    }
+    let ua = if let Some(quoted) = tail.strip_prefix('"') {
+        clip(quoted.split('"').next().unwrap_or(""), UA_MAX)
+    } else {
+        String::new()
+    };
     let mut parts = request.split_whitespace();
     let method = method_name(parts.next()?);
     let target = parts.next()?.to_string();
-    Some((method, target, status, request_time_ms))
+    let protocol = protocol_name(parts.next().unwrap_or(""));
+    Some((method, target, status, took_ms, protocol, ua))
 }
 
 fn request_time_ms(text: &str) -> u32 {
@@ -326,8 +427,15 @@ mod tests {
         )
         .unwrap();
         assert_eq!(timed.request_time_ms, 42);
+        assert_eq!(timed.protocol, "HTTP/1.1");
         assert!(event_json(&timed, false).contains(r#""request_time_ms":42"#));
         assert!(!event_json(&hit, false).contains("request_time_ms"));
+        let agent = parse_line(
+            r#"1761141841.123 203.0.113.10 vipkeys.net "GET /pricing HTTP/1.1" 200 0.042 "Mozilla/5.0""#,
+        )
+        .unwrap();
+        assert_eq!(agent.ua, "Mozilla/5.0");
+        assert!(event_json(&agent, false).contains(r#""ua":"Mozilla/5.0""#));
     }
 
     #[test]
@@ -341,7 +449,7 @@ mod tests {
     #[test]
     fn a_proxy_line_keeps_the_host_and_drops_the_query() {
         let hit = parse_line(
-            r#"{"ClientHost":"203.0.113.10","DownstreamStatus":404,"Duration":42000000,"RequestHost":"Shop.Example","RequestMethod":"GET","RequestPath":"/pricing?q=1","RouterName":"https-0-app@docker","StartUTC":"2026-10-21T15:43:05.08506422Z","request_Referer":"https://secret.example/a","request_User-Agent":"secret-agent"}"#,
+            r#"{"ClientHost":"203.0.113.10","DownstreamContentSize":1280,"DownstreamStatus":404,"Duration":42000000,"RequestHost":"Shop.Example","RequestMethod":"GET","RequestPath":"/pricing?q=1","RequestProtocol":"HTTP/2.0","RequestScheme":"https","RouterName":"https-0-app@docker","StartUTC":"2026-10-21T15:43:05.08506422Z","TLSCipher":"TLS_AES_128_GCM_SHA256","TLSVersion":"1.3","request_Referer":"https://secret.example/a","request_User-Agent":"Mozilla/5.0"}"#,
         )
         .unwrap();
         assert_eq!(hit.ts_ms, 1_792_597_385_085);
@@ -351,9 +459,16 @@ mod tests {
         assert_eq!(hit.path, "/pricing");
         assert_eq!(hit.status, 404);
         assert_eq!(hit.request_time_ms, 42);
+        assert_eq!(hit.ua, "Mozilla/5.0");
+        assert_eq!(hit.bytes_sent, 1280);
+        assert_eq!(hit.protocol, "https HTTP/2.0");
+        assert_eq!(hit.tls, "1.3 TLS_AES_128_GCM_SHA256");
         assert!(hit.routed);
         let event = event_json(&hit, false);
+        assert!(event.contains(r#""ua":"Mozilla/5.0""#));
+        assert!(event.contains(r#""bytes_sent":1280"#));
         assert!(!event.contains("secret"));
+        assert!(!event.contains("Referer"));
         assert!(!event.contains('?'));
         assert!(parse_line(r#"{"RequestPath":"/ping","DownstreamStatus":200}"#).is_none());
         assert!(parse_line(

@@ -1,21 +1,45 @@
 "use client";
 
+import { useState } from "react";
 import type { Summary } from "@/entities/observation/model";
 import { siteLines } from "@/fsd/pages/cabinet/site-lines";
 import { Badge } from "@/shared/ui/badge";
+import { Skeleton } from "@/shared/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
+import { FIELD_LABEL, FIELD_SITE, NO_MATCH, choiceList, keepRow } from "@/widgets/table-tools/query";
+import { TableTools } from "@/widgets/table-tools/ui/table-tools";
 import { formatRps } from "@/widgets/world-map/places";
+
+const SKELETON_ROWS = 4;
+
+function SkeletonRows({ widths }: { widths: string[] }) {
+  return Array.from({ length: SKELETON_ROWS }, (_, index) => (
+    <TableRow key={index}>
+      {widths.map((width, column) => (
+        <TableCell key={column}>
+          <Skeleton className={`h-3 ${width}`} />
+        </TableCell>
+      ))}
+    </TableRow>
+  ));
+}
 
 export function SiteBoard({
   summary,
   showEdges,
   onPath,
 }: {
-  summary: Summary;
+  summary: Summary | null;
   showEdges: boolean;
   onPath: (path: string) => void;
 }) {
-  const lines = siteLines(summary.by_site ?? [], summary.domains ?? []);
+  const lines = summary ? siteLines(summary.by_site ?? [], summary.domains ?? []) : null;
+  const [siteQuery, setSiteQuery] = useState("");
+  const [sitePick, setSitePick] = useState("");
+  const [slowQuery, setSlowQuery] = useState("");
+  const [slowLabel, setSlowLabel] = useState("");
+  const sites = (lines ?? []).filter((line) => keepRow([line.name], siteQuery, [line.name], [sitePick]));
+  const slow = (summary?.slow ?? []).filter((row) => keepRow([row.path, row.label], slowQuery, [row.label], [slowLabel]));
   return (
     <div className="mt-6 space-y-6">
       <section className="glass-panel overflow-x-auto p-4">
@@ -23,10 +47,42 @@ export function SiteBoard({
         <p className="mt-1 text-xs text-muted-foreground">
           The name is the Host header. Counts are the last 24 hours. The rate is the last minute.
         </p>
-        {lines.length === 0 ? (
+        {lines === null ? (
+          <div className="mt-4" aria-busy="true">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Site</TableHead>
+                  <TableHead>Requests</TableHead>
+                  <TableHead>Probes</TableHead>
+                  <TableHead>RPS</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <SkeletonRows widths={["w-32", "w-10", "w-8", "w-10"]} />
+              </TableBody>
+            </Table>
+          </div>
+        ) : lines.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">No sites in this window.</p>
         ) : (
           <div className="mt-4">
+          <TableTools
+            query={siteQuery}
+            onQuery={setSiteQuery}
+            filters={[
+              {
+                id: "site",
+                label: FIELD_SITE,
+                value: sitePick,
+                options: choiceList(lines.map((line) => line.name)),
+                onChange: setSitePick,
+              },
+            ]}
+          />
+          {sites.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{NO_MATCH}</p>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -37,7 +93,7 @@ export function SiteBoard({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {lines.map((line) => (
+              {sites.map((line) => (
                 <TableRow key={line.name}>
                   <TableCell className="font-mono text-xs">{line.name}</TableCell>
                   <TableCell className="font-mono text-cyber-cyan">{line.requests}</TableCell>
@@ -47,6 +103,7 @@ export function SiteBoard({
               ))}
             </TableBody>
           </Table>
+          )}
           </div>
         )}
       </section>
@@ -54,7 +111,16 @@ export function SiteBoard({
         <section className="glass-panel p-4">
           <h2 className="text-sm font-medium">Edges</h2>
           <p className="mt-1 text-xs text-muted-foreground">Where the batch was accepted. Last 24 hours.</p>
-          {summary.edges.length === 0 ? (
+          {summary === null ? (
+            <ul className="mt-3 space-y-3" aria-busy="true">
+              {Array.from({ length: SKELETON_ROWS }, (_, index) => (
+                <li key={index} className="flex items-center justify-between gap-3 py-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-28" />
+                </li>
+              ))}
+            </ul>
+          ) : summary.edges.length === 0 ? (
             <p className="mt-3 text-sm text-muted-foreground">No edges in this window.</p>
           ) : (
             <ul className="mt-3 divide-y divide-cyber-cyan/10">
@@ -76,10 +142,42 @@ export function SiteBoard({
         <p className="mt-1 text-xs text-muted-foreground">
           Average over the last 24 hours. A path with no duration from the collector stays off this list.
         </p>
-        {(summary.slow ?? []).length === 0 ? (
+        {summary === null ? (
+          <div className="mt-4" aria-busy="true">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Path</TableHead>
+                  <TableHead>Requests</TableHead>
+                  <TableHead>Average</TableHead>
+                  <TableHead>Max</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <SkeletonRows widths={["w-40", "w-8", "w-12", "w-12"]} />
+              </TableBody>
+            </Table>
+          </div>
+        ) : (summary.slow ?? []).length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">No request time in this window.</p>
         ) : (
           <div className="mt-4">
+          <TableTools
+            query={slowQuery}
+            onQuery={setSlowQuery}
+            filters={[
+              {
+                id: "label",
+                label: FIELD_LABEL,
+                value: slowLabel,
+                options: choiceList((summary?.slow ?? []).map((row) => row.label)),
+                onChange: setSlowLabel,
+              },
+            ]}
+          />
+          {slow.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{NO_MATCH}</p>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -90,7 +188,7 @@ export function SiteBoard({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {summary.slow.map((row) => (
+              {slow.map((row) => (
                 <TableRow key={row.path}>
                   <TableCell>
                     <button type="button" className="inline-flex items-center gap-2 text-left" onClick={() => onPath(row.path)}>
@@ -105,6 +203,7 @@ export function SiteBoard({
               ))}
             </TableBody>
           </Table>
+          )}
           </div>
         )}
       </section>

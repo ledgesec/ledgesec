@@ -140,6 +140,21 @@ def _moment(op: str) -> str:
     )
 
 
+def _equals(clauses: list[str], params: dict[str, str], column: str, key: str, value: str | None) -> None:
+    if not value:
+        return
+    clauses.append(f"{column} = {{{key}:String}}")
+    params[key] = value
+
+
+def _contains(clauses: list[str], params: dict[str, str], q: str | None, columns: list[str]) -> None:
+    if not q:
+        return
+    params["f_q"] = q
+    parts = [f"positionCaseInsensitive({column}, {{f_q:String}}) > 0" for column in columns]
+    clauses.append("(" + " OR ".join(parts) + ")")
+
+
 def event_page_query(
     host_ids: list[str] | None,
     bound: dict | None,
@@ -147,6 +162,12 @@ def event_page_query(
     limit: int,
     ip: str | None,
     path: str | None = None,
+    *,
+    site: str | None = None,
+    country: str | None = None,
+    edge: str | None = None,
+    q: str | None = None,
+    wide: bool = False,
 ) -> tuple[str, dict[str, str]]:
     predicate, params = host_predicate(host_ids)
     clauses = []
@@ -158,6 +179,13 @@ def event_page_query(
     if path:
         clauses.append("path = {f_path:String}")
         params["f_path"] = path
+    _equals(clauses, params, "site_id", "f_site", site)
+    _equals(clauses, params, "country", "f_country", country)
+    _equals(clauses, params, "edge_id", "f_edge", edge)
+    columns = ["site_id", "path", "country", "ua"]
+    if wide:
+        columns.extend(["edge_id", "toString(ip)"])
+    _contains(clauses, params, q, columns)
     order = "ts DESC, site_id DESC, edge_id DESC, path DESC, toString(ip) DESC"
     if bound is not None:
         params["c_ts"] = bound["t"]
@@ -174,7 +202,7 @@ def event_page_query(
     sql = (
         "SELECT formatDateTime(ts, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS ts, "
         "site_id, edge_id, route_group, path, decision, reason, toString(ip) AS ip, country, "
-        "request_time_ms "
+        "request_time_ms, method, status, ua, bytes_sent, protocol, tls "
         "FROM ledgesec.events "
         f"{where}ORDER BY {order} LIMIT {int(limit)} FORMAT JSONEachRow"
     )
@@ -188,15 +216,38 @@ def event_page_rows(
     direction: str,
     ip: str | None,
     path: str | None = None,
+    *,
+    site: str | None = None,
+    country: str | None = None,
+    edge: str | None = None,
+    q: str | None = None,
+    wide: bool = False,
 ) -> list[dict]:
     prepare_journal()
-    sql, params = event_page_query(host_ids, bound, direction, limit, ip, path)
+    sql, params = event_page_query(
+        host_ids, bound, direction, limit, ip, path, site=site, country=country, edge=edge, q=q, wide=wide
+    )
     return clickhouse_rows(sql, params)
 
 
-def address_key_query(bound: dict | None, direction: str, limit: int) -> tuple[str, dict[str, str]]:
+def address_key_query(
+    bound: dict | None,
+    direction: str,
+    limit: int,
+    *,
+    site: str | None = None,
+    country: str | None = None,
+    edge: str | None = None,
+    q: str | None = None,
+) -> tuple[str, dict[str, str]]:
     having = ""
     params: dict[str, str] = {}
+    where_clauses: list[str] = []
+    _equals(where_clauses, params, "site_id", "f_site", site)
+    _equals(where_clauses, params, "country", "f_country", country)
+    _equals(where_clauses, params, "edge_id", "f_edge", edge)
+    _contains(where_clauses, params, q, ["toString(ip)", "country", "site_id", "edge_id", "path", "ua"])
+    where = f"WHERE {' AND '.join(where_clauses)} " if where_clauses else ""
     order = "count() DESC, toString(ip) ASC"
     if bound is not None:
         params["c_n"] = str(bound["n"])
@@ -215,17 +266,27 @@ def address_key_query(bound: dict | None, direction: str, limit: int) -> tuple[s
     sql = (
         "SELECT toString(ip) AS ip, count() AS count, "
         "formatDateTime(max(ts), '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS last_ts, "
-        "anyIf(country, country != '') AS country "
+        "anyIf(country, country != '') AS country, "
+        "argMaxIf(ua, ts, ua != '') AS ua "
         "FROM ledgesec.events "
-        "GROUP BY ip "
+        f"{where}GROUP BY ip "
         f"{having}ORDER BY {order} LIMIT {int(limit)} FORMAT JSONEachRow"
     )
     return sql, params
 
 
-def address_key_rows(bound: dict | None, direction: str, limit: int) -> list[dict]:
+def address_key_rows(
+    bound: dict | None,
+    direction: str,
+    limit: int,
+    *,
+    site: str | None = None,
+    country: str | None = None,
+    edge: str | None = None,
+    q: str | None = None,
+) -> list[dict]:
     prepare_journal()
-    sql, params = address_key_query(bound, direction, limit)
+    sql, params = address_key_query(bound, direction, limit, site=site, country=country, edge=edge, q=q)
     return clickhouse_rows(sql, params)
 
 

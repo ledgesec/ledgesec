@@ -1,4 +1,5 @@
 import { Badge } from "@/shared/ui/badge";
+import { Skeleton } from "@/shared/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 import type { AddressRow } from "@/entities/observation/model";
 import { requestCount } from "@/widgets/address-panel/actions";
@@ -11,19 +12,27 @@ function edges(map: Record<string, number>) {
     .join(" · ");
 }
 
+const SKELETON_ROWS = 6;
+
 export function AddressPanel({
   rows,
   onRequests,
   compact = false,
+  empty = "No addresses have been recorded yet.",
+  pending = false,
 }: {
   rows: AddressRow[];
   onRequests: (ip: string) => void;
   compact?: boolean;
+  empty?: string;
+  pending?: boolean;
 }) {
-  if (rows.length === 0) {
-    return <p className="text-muted-foreground">No addresses have been recorded yet.</p>;
+  if (!pending && rows.length === 0) {
+    return <p className="text-muted-foreground">{empty}</p>;
   }
+  const widths = ["w-36", "w-10", ...(compact ? [] : ["w-24"]), "w-8", ...(compact ? [] : ["w-32", "w-24", "w-28"]), "w-16"];
   return (
+    <div aria-busy={pending ? true : undefined}>
     <Table>
       <TableHeader>
         <TableRow>
@@ -38,7 +47,17 @@ export function AddressPanel({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map((row) => (
+        {pending
+          ? Array.from({ length: SKELETON_ROWS }, (_, index) => (
+              <TableRow key={index}>
+                {widths.map((width, column) => (
+                  <TableCell key={column}>
+                    <Skeleton className={`h-3 ${width}`} />
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          : rows.map((row) => (
           <TableRow key={row.ip} className={row.probes ? "bg-probe-surface text-probe-foreground" : undefined}>
             <TableCell className="font-mono text-xs">
               {row.ip}
@@ -72,5 +91,6 @@ export function AddressPanel({
         ))}
       </TableBody>
     </Table>
+    </div>
   );
 }

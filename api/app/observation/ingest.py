@@ -13,6 +13,12 @@ IPV4 = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 IPV6 = re.compile(r"^[0-9A-Fa-f:.]{2,64}$")
 MAX_EVENTS = 1000
 INGEST_BODY_LIMIT = 1024 * 1024
+UA_MAX = 200
+METHOD_MAX = 16
+PROTOCOL_MAX = 24
+TLS_MAX = 64
+STATUS_MAX = 65535
+BYTES_MAX = 2**64 - 1
 
 
 def to_ipv6(ip: str) -> str:
@@ -98,11 +104,61 @@ def event_lines(body: bytes) -> list[str]:
             "ja4": "",
             "sampled": sampled,
             "request_time_ms": request_time_ms(event.get("request_time_ms")),
+            "method": method_of(event.get("method")),
+            "status": status_of(event.get("status")),
+            "ua": text_of(event.get("ua"), UA_MAX),
+            "bytes_sent": bytes_of(event.get("bytes_sent")),
+            "protocol": token_of(event.get("protocol"), PROTOCOL_MAX, "/. "),
+            "tls": token_of(event.get("tls"), TLS_MAX, "._/ "),
         }
         if event.get("routed") is False:
             stored["routed"] = False
         lines.append(json.dumps(stored, separators=(",", ":")))
     return lines
+
+
+def method_of(value: object) -> str:
+    text = str(value or "").strip().upper()
+    if text == "" or len(text) > METHOD_MAX or not text.isalpha():
+        return ""
+    return text
+
+
+def status_of(value: object) -> int:
+    number = whole(value)
+    if number < 0 or number > STATUS_MAX:
+        return 0
+    return number
+
+
+def bytes_of(value: object) -> int:
+    number = whole(value)
+    if number < 0:
+        return 0
+    return min(number, BYTES_MAX)
+
+
+def text_of(value: object, limit: int) -> str:
+    if not isinstance(value, str):
+        return ""
+    clean = "".join(char for char in value if char.isprintable() and char not in "\r\n")
+    return clean[:limit]
+
+
+def token_of(value: object, limit: int, extra: str) -> str:
+    text = text_of(value, limit)
+    if text == "" or any(char not in extra and not char.isalnum() for char in text):
+        return ""
+    return text
+
+
+def whole(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        return 0
 
 
 def request_time_ms(value: object) -> int:

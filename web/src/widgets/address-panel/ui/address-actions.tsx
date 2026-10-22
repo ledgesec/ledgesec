@@ -116,6 +116,10 @@ function AddressDetails({
               <dt className="text-xs text-muted-foreground uppercase">Country</dt>
               <dd className="mt-1 font-mono">{row.country || "—"}</dd>
             </div>
+            <div className="col-span-2">
+              <dt className="text-xs text-muted-foreground uppercase">User agent</dt>
+              <dd className="mt-1 font-mono text-xs break-all">{row.ua || "—"}</dd>
+            </div>
             <div>
               <dt className="text-xs text-muted-foreground uppercase">Last seen</dt>
               <dd className="mt-1 font-mono text-xs">{row.lastTs ? row.lastTs.replace(".000000Z", "Z") : "—"}</dd>

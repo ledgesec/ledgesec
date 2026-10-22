@@ -1,6 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  BLANK_FIELDS,
+  FIELD_COUNTRY,
+  FIELD_EDGE,
+  FIELD_SITE,
+  NO_MATCH,
+  choiceList,
+  keepRow,
+  type JournalFields,
+} from "@/widgets/table-tools/query";
+import { TableTools, useHeld } from "@/widgets/table-tools/ui/table-tools";
 import {
   DEFAULT_REFRESH_SECONDS,
   REFRESH_SECONDS,
@@ -17,15 +30,28 @@ import { SiteBoard } from "@/fsd/pages/cabinet/ui/site-board";
 import { readAddresses, readObservations, readSummary } from "@/features/journal/api";
 import { readSession, signOut, type SessionUser } from "@/features/sign-in/api";
 import { SignInForm } from "@/features/sign-in/ui/sign-in-form";
+import {
+  ADDRESSES,
+  HOSTS,
+  OVERVIEW,
+  PROBES,
+  REQUEST_IP,
+  REQUEST_PATH,
+  REQUESTS,
+  SITES,
+  requestHref,
+  sectionHref,
+  sectionOfPath,
+  type CabinetSection,
+} from "@/shared/lib/cabinet-section";
 import { adminHref, dashboardHref } from "@/shared/lib/hosts";
 import { ADMIN, USER, type CabinetMode } from "@/shared/lib/role";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import { Skeleton } from "@/shared/ui/skeleton";
 import { TablePager } from "@/shared/ui/table-pager";
 import { AddressPanel } from "@/widgets/address-panel/ui/address-panel";
-import { SECTION_LOADER_MS, sectionIsLoading } from "@/widgets/cabinet-shell/section-loader";
-import { CabinetShell, type CabinetSection } from "@/widgets/cabinet-shell/ui/cabinet-shell";
-import { SectionLoader } from "@/widgets/cabinet-shell/ui/section-loader";
+import { CabinetShell } from "@/widgets/cabinet-shell/ui/cabinet-shell";
 import { HourChart } from "@/widgets/hour-chart/ui/hour-chart";
 import { RequestList } from "@/widgets/request-list/ui/request-list";
 import { DomainRates, WorldMap } from "@/widgets/world-map/ui/world-map";
@@ -43,19 +69,39 @@ type Journal = {
 const emptyAddressPage = { rows: [] as AddressRow[], next: null, prev: null };
 
 export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const params = useSearchParams();
+  const section = sectionOfPath(pathname, mode);
+  const addressFilter = section === REQUESTS ? params.get(REQUEST_IP) || null : null;
+  const pathFilter = section === REQUESTS ? params.get(REQUEST_PATH) || null : null;
   const [user, setUser] = useState<SessionUser | null>(null);
   const [phase, setPhase] = useState<"checking" | "out" | "ready">("checking");
-  const [section, setSection] = useState<CabinetSection>("overview");
   const [journal, setJournal] = useState<Journal | null>(null);
   const [journalError, setJournalError] = useState(false);
-  const [addressFilter, setAddressFilter] = useState<string | null>(null);
-  const [pathFilter, setPathFilter] = useState<string | null>(null);
+  const [requestFields, setRequestFields] = useState<JournalFields>(BLANK_FIELDS);
+  const [addressFields, setAddressFields] = useState<JournalFields>(BLANK_FIELDS);
+  const heldRequestQuery = useHeld(requestFields.q);
+  const heldAddressQuery = useHeld(addressFields.q);
   const [refreshSeconds, setRefreshSeconds] = useState<RefreshSeconds>(DEFAULT_REFRESH_SECONDS);
   const [freshRequests, setFreshRequests] = useState<string[]>([]);
-  const [hold, setHold] = useState(false);
   const seenRequests = useRef<string[] | null>(null);
   const addressOnFirstPage = useRef(true);
   const observationOnFirstPage = useRef(true);
+  const scoped = useRef(false);
+  const filterRef = useRef({ section, addressFilter, pathFilter });
+  const requestLookup = useMemo(
+    () => ({ q: heldRequestQuery, site: requestFields.site, country: requestFields.country, edge: requestFields.edge }),
+    [heldRequestQuery, requestFields.site, requestFields.country, requestFields.edge],
+  );
+  const addressLookup = useMemo(
+    () => ({ q: heldAddressQuery, site: addressFields.site, country: addressFields.country, edge: addressFields.edge }),
+    [heldAddressQuery, addressFields.site, addressFields.country, addressFields.edge],
+  );
+
+  useEffect(() => {
+    filterRef.current = { section, addressFilter, pathFilter };
+  }, [section, addressFilter, pathFilter]);
 
   const accepts = useCallback(
     (next: SessionUser) => (mode === ADMIN ? next.role === ADMIN : next.role === USER),
@@ -66,14 +112,14 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
     (next: SessionUser) => {
       setUser(next);
       setPhase("ready");
-      setSection("overview");
       setJournal(null);
       setJournalError(false);
-      setAddressFilter(null);
-      setPathFilter(null);
       if (!accepts(next)) return;
+      const view = filterRef.current;
+      const ip = view.section === REQUESTS ? (view.addressFilter ?? "") : "";
+      const path = view.section === REQUESTS ? (view.pathFilter ?? "") : "";
       const addresses = mode === ADMIN ? readAddresses() : Promise.resolve(emptyAddressPage);
-      Promise.all([readSummary(), readObservations(), addresses])
+      Promise.all([readSummary(), readObservations(null, "next", ip, path), addresses])
         .then(([summary, observations, addressPage]) => {
           seenRequests.current = observations.rows.map(observationKey);
           setFreshRequests([]);
@@ -101,16 +147,23 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
   }, [journal?.observationPrev]);
 
   useEffect(() => {
-    if (phase !== "ready" || refreshSeconds === 0 || section === "hosts") return;
+    if (phase !== "ready" || refreshSeconds === 0 || section === HOSTS) return;
     const timer = window.setInterval(() => {
-      const onRequests = section === "requests";
-      const refreshObservations = section === "overview" || (onRequests && observationOnFirstPage.current);
+      const onRequests = section === REQUESTS;
+      const refreshObservations = section === OVERVIEW || (onRequests && observationOnFirstPage.current);
       const refreshAddresses =
-        mode === ADMIN && addressOnFirstPage.current && section === "addresses";
+        mode === ADMIN && addressOnFirstPage.current && section === ADDRESSES;
       const observations = refreshObservations
-        ? readObservations(null, "next", onRequests ? (addressFilter ?? "") : "", onRequests ? (pathFilter ?? "") : "")
+        ? readObservations(
+            null,
+            "next",
+            onRequests ? (addressFilter ?? "") : "",
+            onRequests ? (pathFilter ?? "") : "",
+            onRequests ? requestLookup : BLANK_FIELDS,
+            mode === ADMIN,
+          )
         : Promise.resolve(null);
-      const addresses = refreshAddresses ? readAddresses() : Promise.resolve(null);
+      const addresses = refreshAddresses ? readAddresses(null, "next", addressLookup) : Promise.resolve(null);
       Promise.all([readSummary(), observations, addresses])
         .then(([summary, observationPage, addressPage]) => {
           if (observationPage) {
@@ -149,7 +202,64 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
         .catch(() => setJournalError(true));
     }, refreshSeconds * 1000);
     return () => window.clearInterval(timer);
-  }, [phase, mode, section, refreshSeconds, addressFilter, pathFilter]);
+  }, [
+    phase,
+    mode,
+    section,
+    refreshSeconds,
+    addressFilter,
+    pathFilter,
+    requestLookup,
+    addressLookup,
+  ]);
+
+  useEffect(() => {
+    if (phase !== "ready") return;
+    if (section === REQUESTS && (addressFilter || pathFilter)) {
+      scoped.current = true;
+      return;
+    }
+    if (section === REQUESTS || !scoped.current) return;
+    scoped.current = false;
+    seenRequests.current = null;
+    readObservations(null, "next", "", "", BLANK_FIELDS, mode === ADMIN)
+      .then((page) => {
+        seenRequests.current = page.rows.map(observationKey);
+        setFreshRequests([]);
+        setJournal((current) =>
+          current
+            ? { ...current, observations: page.rows, observationNext: page.next, observationPrev: page.prev }
+            : current,
+        );
+      })
+      .catch(() => setJournalError(true));
+  }, [phase, section, mode, addressFilter, pathFilter]);
+
+  useEffect(() => {
+    if (phase !== "ready" || section !== REQUESTS) return;
+    readObservations(null, "next", addressFilter ?? "", pathFilter ?? "", requestLookup, mode === ADMIN)
+      .then((page) => {
+        seenRequests.current = page.rows.map(observationKey);
+        setFreshRequests([]);
+        setJournal((current) =>
+          current
+            ? { ...current, observations: page.rows, observationNext: page.next, observationPrev: page.prev }
+            : current,
+        );
+      })
+      .catch(() => setJournalError(true));
+  }, [phase, section, mode, addressFilter, pathFilter, requestLookup]);
+
+  useEffect(() => {
+    if (phase !== "ready" || section !== ADDRESSES || mode !== ADMIN) return;
+    readAddresses(null, "next", addressLookup)
+      .then((page) => {
+        setJournal((current) =>
+          current ? { ...current, addresses: page.rows, addressNext: page.next, addressPrev: page.prev } : current,
+        );
+      })
+      .catch(() => setJournalError(true));
+  }, [phase, section, mode, addressLookup]);
 
   useEffect(() => {
     let cancelled = false;
@@ -167,12 +277,6 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
     };
   }, [load]);
 
-  useEffect(() => {
-    if (!hold) return;
-    const timer = window.setTimeout(() => setHold(false), SECTION_LOADER_MS);
-    return () => window.clearTimeout(timer);
-  }, [hold, section]);
-
   function leave() {
     signOut().finally(() => {
       setUser(null);
@@ -188,7 +292,13 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
           <p className="text-xs tracking-[0.08em] text-cyber-cyan uppercase">
             {mode === ADMIN ? "Admin cabinet" : "Site cabinet"}
           </p>
-          {phase === "checking" ? <p className="mt-4 text-muted-foreground">Reading the session.</p> : null}
+          {phase === "checking" ? (
+            <div className="mt-4 space-y-3" aria-busy="true">
+              <Skeleton className="h-9 w-40" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-4/5" />
+            </div>
+          ) : null}
           {phase === "out" ? (
             <>
               <h1 className="mt-3 text-3xl font-bold">Sign in.</h1>
@@ -253,58 +363,25 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
   }
 
   function openAddress(ip: string) {
-    setPathFilter(null);
-    setAddressFilter(ip);
-    enter("requests");
-    readObservations(null, "next", ip)
-      .then(keepObservations)
-      .catch(() => setJournalError(true));
+    router.push(requestHref(host, mode, ip, ""));
   }
 
   function openPath(path: string) {
-    setAddressFilter(null);
-    setPathFilter(path);
-    enter("requests");
-    readObservations(null, "next", "", path)
-      .then(keepObservations)
-      .catch(() => setJournalError(true));
+    router.push(requestHref(host, mode, "", path));
   }
 
   function clearAddress() {
-    setAddressFilter(null);
-    readObservations(null, "next", "", pathFilter ?? "")
-      .then(keepObservations)
-      .catch(() => setJournalError(true));
+    router.push(requestHref(host, mode, "", pathFilter ?? ""));
   }
 
   function clearPath() {
-    setPathFilter(null);
-    readObservations(null, "next", addressFilter ?? "")
-      .then(keepObservations)
-      .catch(() => setJournalError(true));
-  }
-
-  function enter(next: CabinetSection) {
-    if (next !== section) setHold(true);
-    setSection(next);
-  }
-
-  function chooseSection(next: CabinetSection) {
-    if (next !== "requests" && (addressFilter || pathFilter)) {
-      setAddressFilter(null);
-      setPathFilter(null);
-      seenRequests.current = null;
-      readObservations()
-        .then(keepObservations)
-        .catch(() => setJournalError(true));
-    }
-    enter(next);
+    router.push(requestHref(host, mode, addressFilter ?? "", ""));
   }
 
   function turnObservations(direction: "next" | "prev") {
     const cursor = direction === "next" ? journal?.observationNext : journal?.observationPrev;
     if (!cursor) return;
-    readObservations(cursor, direction, addressFilter ?? "", pathFilter ?? "")
+    readObservations(cursor, direction, addressFilter ?? "", pathFilter ?? "", requestLookup, mode === ADMIN)
       .then(keepObservations)
       .catch(() => setJournalError(true));
   }
@@ -312,49 +389,45 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
   function turnAddresses(direction: "next" | "prev") {
     const cursor = direction === "next" ? journal?.addressNext : journal?.addressPrev;
     if (!cursor) return;
-    readAddresses(cursor, direction)
+    readAddresses(cursor, direction, addressLookup)
       .then(keepAddresses)
       .catch(() => setJournalError(true));
   }
 
   return (
     <CabinetShell
+      host={host}
       mode={mode}
       email={user.email}
       section={section}
       pulse={journal ? { requests: journal.summary.requests, probes: journal.summary.probes, rps: journal.summary.rps } : null}
-      onSection={chooseSection}
       onSignOut={leave}
     >
-      {sectionIsLoading(hold, journal !== null, journalError, section === "hosts") ? (
-        <SectionLoader />
-      ) : (
-        <>
       <h1 className="text-3xl font-bold">{titleOf(section)}</h1>
       <p className="mt-1 text-sm text-muted-foreground">{blurbOf(section)}</p>
-      {section !== "hosts" ? (
+      {section !== HOSTS ? (
         <div className="mt-6">
           <RefreshPicker value={refreshSeconds} onChange={setRefreshSeconds} />
         </div>
       ) : null}
-      {section === "hosts" ? <HostsPanel mode={mode} /> : null}
-      {journalError && section !== "hosts" ? <p className="mt-8 text-cyber-red">The journal did not answer.</p> : null}
-      {journal && section === "overview" ? (
+      {section === HOSTS ? <HostsPanel mode={mode} /> : null}
+      {journalError && section !== HOSTS ? <p className="mt-8 text-cyber-red">The journal did not answer.</p> : null}
+      {(journal || !journalError) && section === OVERVIEW ? (
         <Overview
-          summary={journal.summary}
+          summary={journal?.summary ?? null}
           mode={mode}
           onRequests={openAddress}
           onPath={openPath}
-          onAllProbes={() => chooseSection("probes")}
-          observations={journal.observations}
+          probesHref={sectionHref(host, mode, PROBES)}
+          observations={journal?.observations ?? []}
           freshRequests={freshRequests}
         />
       ) : null}
-      {journal && section === "probes" ? <ProbeBoard summary={journal.summary} onPath={openPath} /> : null}
-      {journal && section === "sites" ? (
-        <SiteBoard summary={journal.summary} showEdges={mode === ADMIN} onPath={openPath} />
+      {(journal || !journalError) && section === PROBES ? <ProbeBoard summary={journal?.summary ?? null} onPath={openPath} /> : null}
+      {(journal || !journalError) && section === SITES ? (
+        <SiteBoard summary={journal?.summary ?? null} showEdges={mode === ADMIN} onPath={openPath} />
       ) : null}
-      {journal && section === "requests" ? (
+      {(journal || !journalError) && section === REQUESTS ? (
         <div className="glass-panel mt-6 overflow-x-auto p-4">
           {addressFilter ? (
             <div className="mb-4 flex items-center justify-between gap-3">
@@ -376,14 +449,51 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
               </button>
             </div>
           ) : null}
+          <TableTools
+            query={requestFields.q}
+            onQuery={(q) => setRequestFields((current) => ({ ...current, q }))}
+            filters={[
+              {
+                id: "site",
+                label: FIELD_SITE,
+                value: requestFields.site,
+                options: choiceList([
+                  ...(journal?.summary.by_site ?? []).map((site) => site.name),
+                  ...(journal?.summary.domains ?? []).map((domain) => domain.name),
+                ]),
+                onChange: (site) => setRequestFields((current) => ({ ...current, site })),
+              },
+              {
+                id: "country",
+                label: FIELD_COUNTRY,
+                value: requestFields.country,
+                options: choiceList((journal?.summary.countries ?? []).map((country) => country.code)),
+                onChange: (country) => setRequestFields((current) => ({ ...current, country })),
+              },
+              ...(mode === ADMIN
+                ? [
+                    {
+                      id: "edge",
+                      label: FIELD_EDGE,
+                      value: requestFields.edge,
+                      options: choiceList((journal?.summary.edges ?? []).map((edge) => edge.id)),
+                      onChange: (edge: string) => setRequestFields((current) => ({ ...current, edge })),
+                    },
+                  ]
+                : []),
+            ]}
+          />
           <RequestList
-            rows={journal.observations}
+            rows={journal?.observations ?? []}
+            pending={!journal}
             showEdge={mode === ADMIN}
             showAddress={mode === ADMIN}
             onAddress={openAddress}
             fresh={freshRequests}
             empty={
-              addressFilter
+              requestFields.q !== "" || requestFields.site !== "" || requestFields.country !== "" || requestFields.edge !== ""
+                ? NO_MATCH
+                : addressFilter
                 ? "This address is not in the latest requests."
                 : pathFilter
                   ? "This path is not in the latest requests."
@@ -391,45 +501,82 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
             }
           />
           <TablePager
-            prev={journal.observationPrev}
-            next={journal.observationNext}
+            prev={journal?.observationPrev ?? null}
+            next={journal?.observationNext ?? null}
             onPrev={() => turnObservations("prev")}
             onNext={() => turnObservations("next")}
           />
         </div>
       ) : null}
-      {journal && section === "addresses" && mode === ADMIN ? (
+      {(journal || !journalError) && section === ADDRESSES && mode === ADMIN ? (
         <div className="glass-panel mt-6 overflow-x-auto p-4">
-          <AddressPanel rows={journal.addresses} onRequests={openAddress} />
+          <TableTools
+            query={addressFields.q}
+            onQuery={(q) => setAddressFields((current) => ({ ...current, q }))}
+            filters={[
+              {
+                id: "site",
+                label: FIELD_SITE,
+                value: addressFields.site,
+                options: choiceList([
+                  ...(journal?.summary.by_site ?? []).map((site) => site.name),
+                  ...(journal?.summary.domains ?? []).map((domain) => domain.name),
+                ]),
+                onChange: (site) => setAddressFields((current) => ({ ...current, site })),
+              },
+              {
+                id: "country",
+                label: FIELD_COUNTRY,
+                value: addressFields.country,
+                options: choiceList((journal?.summary.countries ?? []).map((country) => country.code)),
+                onChange: (country) => setAddressFields((current) => ({ ...current, country })),
+              },
+              {
+                id: "edge",
+                label: FIELD_EDGE,
+                value: addressFields.edge,
+                options: choiceList((journal?.summary.edges ?? []).map((edge) => edge.id)),
+                onChange: (edge) => setAddressFields((current) => ({ ...current, edge })),
+              },
+            ]}
+          />
+          <AddressPanel
+            rows={journal?.addresses ?? []}
+            pending={!journal}
+            onRequests={openAddress}
+            empty={
+              addressFields.q !== "" || addressFields.site !== "" || addressFields.country !== "" || addressFields.edge !== ""
+                ? NO_MATCH
+                : undefined
+            }
+          />
           <TablePager
-            prev={journal.addressPrev}
-            next={journal.addressNext}
+            prev={journal?.addressPrev ?? null}
+            next={journal?.addressNext ?? null}
             onPrev={() => turnAddresses("prev")}
             onNext={() => turnAddresses("next")}
           />
         </div>
       ) : null}
-        </>
-      )}
     </CabinetShell>
   );
 }
 
 function titleOf(section: CabinetSection) {
-  if (section === "addresses") return "Addresses";
-  if (section === "requests") return "Requests";
-  if (section === "probes") return "Probes";
-  if (section === "sites") return "Sites";
-  if (section === "hosts") return "Hosts";
+  if (section === ADDRESSES) return "Addresses";
+  if (section === REQUESTS) return "Requests";
+  if (section === PROBES) return "Probes";
+  if (section === SITES) return "Sites";
+  if (section === HOSTS) return "Hosts";
   return "Overview";
 }
 
 function blurbOf(section: CabinetSection) {
-  if (section === "hosts") return "Add a host once. Sites on it appear from the requests, and you can turn one off.";
-  if (section === "probes") return "Paths the marker calls a probe. Open a path to see those requests.";
-  if (section === "sites") return "Each site is a Host header. Counts are the last 24 hours. The rate is the last minute.";
-  if (section === "addresses") return "Addresses in the journal. The request still goes through.";
-  if (section === "requests") return "Newest first. A new row starts green, then settles.";
+  if (section === HOSTS) return "Add a host once. Sites on it appear from the requests, and you can turn one off.";
+  if (section === PROBES) return "Paths the marker calls a probe. Open a path to see those requests.";
+  if (section === SITES) return "Each site is a Host header. Counts are the last 24 hours. The rate is the last minute.";
+  if (section === ADDRESSES) return "Addresses in the journal. The request still goes through.";
+  if (section === REQUESTS) return "Newest first. A new row starts green, then settles.";
   return "Observation records the request and lets it through. The last 24 hours.";
 }
 
@@ -453,6 +600,9 @@ function RefreshPicker({ value, onChange }: { value: RefreshSeconds; onChange: (
   );
 }
 
+const SKELETON_COUNTRIES = 6;
+const SKELETON_PROBES = 4;
+
 function Overview({
   summary,
   mode,
@@ -460,45 +610,72 @@ function Overview({
   observations,
   freshRequests,
   onPath,
-  onAllProbes,
+  probesHref,
 }: {
-  summary: Summary;
+  summary: Summary | null;
   mode: CabinetMode;
   onRequests: (ip: string) => void;
   onPath: (path: string) => void;
-  onAllProbes: () => void;
+  probesHref: string;
   observations: Observation[];
   freshRequests: string[];
 }) {
+  const [fields, setFields] = useState<JournalFields>(BLANK_FIELDS);
+  const latest = latestRequests(observations);
+  const admin = mode === ADMIN;
+  const rows = latest.filter((row) =>
+    keepRow(
+      [row.siteId, row.path, row.country, row.marker?.label ?? "", ...(admin ? [row.edgeId, row.ip] : [])],
+      fields.q,
+      [row.siteId, row.country, ...(admin ? [row.edgeId] : [])],
+      [fields.site, fields.country, ...(admin ? [fields.edge] : [])],
+    ),
+  );
   const cards = [
-    { label: "Requests", value: String(summary.requests) },
-    { label: "Probes", value: String(summary.probes) },
+    { label: "Requests", value: summary ? String(summary.requests) : null },
+    { label: "Probes", value: summary ? String(summary.probes) : null },
     ...(mode === ADMIN
       ? [
-          { label: "Sites", value: String(summary.sites) },
-          { label: "Edges", value: String(summary.edges.length) },
+          { label: "Sites", value: summary ? String(summary.sites) : null },
+          { label: "Edges", value: summary ? String(summary.edges.length) : null },
         ]
       : []),
   ];
   return (
     <div className="mt-6 space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-busy={summary ? undefined : true}>
         {cards.map((card) => (
           <article key={card.label} className="glass-panel p-4">
             <p className="text-xs tracking-[0.08em] text-muted-foreground uppercase">{card.label}</p>
-            <p className="mt-2 font-mono text-3xl text-cyber-cyan">{card.value}</p>
+            {card.value === null ? (
+              <Skeleton className="mt-2 h-9 w-16" />
+            ) : (
+              <p className="mt-2 font-mono text-3xl text-cyber-cyan">{card.value}</p>
+            )}
           </article>
         ))}
       </div>
       {mode === ADMIN ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(16rem,0.8fr)]">
-          <section className="glass-panel p-4">
+          <section className="glass-panel p-4" aria-busy={summary ? undefined : true}>
             <h2 className="text-sm font-medium">Countries</h2>
             <p className="mt-1 text-xs text-muted-foreground">Last 24 hours. A brighter mark has more requests.</p>
             <div className="mt-4 overflow-hidden rounded-lg border border-cyber-cyan/15">
-              <WorldMap countries={summary.countries ?? []} />
+              {summary ? (
+                <WorldMap countries={summary.countries ?? []} />
+              ) : (
+                <Skeleton className="aspect-[2/1] w-full rounded-none" />
+              )}
             </div>
-            {(summary.countries ?? []).length === 0 ? (
+            {!summary ? (
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {Array.from({ length: SKELETON_COUNTRIES }, (_, index) => (
+                  <li key={index}>
+                    <Skeleton className="h-3 w-12" />
+                  </li>
+                ))}
+              </ul>
+            ) : (summary.countries ?? []).length === 0 ? (
               <p className="mt-3 text-xs text-muted-foreground">No country code in the last 24 hours.</p>
             ) : (
               <ul className="mt-3 flex flex-wrap gap-2">
@@ -511,7 +688,7 @@ function Overview({
             )}
           </section>
           <section className="glass-panel p-4">
-            <DomainRates rps={summary.rps ?? 0} domains={summary.domains ?? []} />
+            <DomainRates pending={!summary} rps={summary?.rps ?? 0} domains={summary?.domains ?? []} />
           </section>
         </div>
       ) : null}
@@ -519,31 +696,76 @@ function Overview({
         <h2 className="text-sm font-medium">Latest requests</h2>
         <p className="mt-1 text-xs text-muted-foreground">The latest 30. A new request starts green, then settles.</p>
         <div className="mt-4">
+          <TableTools
+            query={fields.q}
+            onQuery={(q) => setFields((current) => ({ ...current, q }))}
+            filters={[
+              {
+                id: "site",
+                label: FIELD_SITE,
+                value: fields.site,
+                options: choiceList(latest.map((row) => row.siteId)),
+                onChange: (site) => setFields((current) => ({ ...current, site })),
+              },
+              {
+                id: "country",
+                label: FIELD_COUNTRY,
+                value: fields.country,
+                options: choiceList(latest.map((row) => row.country)),
+                onChange: (country) => setFields((current) => ({ ...current, country })),
+              },
+              ...(admin
+                ? [
+                    {
+                      id: "edge",
+                      label: FIELD_EDGE,
+                      value: fields.edge,
+                      options: choiceList(latest.map((row) => row.edgeId)),
+                      onChange: (edge: string) => setFields((current) => ({ ...current, edge })),
+                    },
+                  ]
+                : []),
+            ]}
+          />
           <RequestList
-            rows={latestRequests(observations)}
-            showEdge={mode === ADMIN}
-            showAddress={mode === ADMIN}
+            rows={rows}
+            pending={!summary}
+            showEdge={admin}
+            showAddress={admin}
             onAddress={onRequests}
             fresh={freshRequests}
+            empty={fields.q !== "" || fields.site !== "" || fields.country !== "" || fields.edge !== "" ? NO_MATCH : undefined}
           />
         </div>
       </section>
-      <section className="glass-panel p-4">
+      <section className="glass-panel p-4" aria-busy={summary ? undefined : true}>
         <h2 className="text-sm font-medium">Requests by hour</h2>
         <div className="mt-4">
-          <HourChart hours={summary.hours} />
+          <HourChart hours={summary?.hours ?? []} pending={!summary} />
         </div>
       </section>
       <section className="glass-panel p-4">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-sm font-medium">Probes</h2>
-          {summary.markers.length > 0 ? (
-            <button type="button" className="text-sm text-cyber-cyan" onClick={onAllProbes}>
+          {summary && summary.markers.length > 0 ? (
+            <Link href={probesHref} className="text-sm text-cyber-cyan">
               All probes
-            </button>
+            </Link>
           ) : null}
         </div>
-        {summary.markers.length === 0 ? (
+        {!summary ? (
+          <ul className="mt-3 divide-y divide-cyber-cyan/10" aria-busy="true">
+            {Array.from({ length: SKELETON_PROBES }, (_, index) => (
+              <li key={index} className="flex items-center justify-between gap-3 py-2">
+                <span className="inline-flex items-center gap-2">
+                  <Skeleton className="h-5 w-14 rounded-full" />
+                  <Skeleton className="h-3 w-40" />
+                </span>
+                <Skeleton className="h-4 w-8" />
+              </li>
+            ))}
+          </ul>
+        ) : summary.markers.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">No probes in this window.</p>
         ) : (
           <ul className="mt-3 divide-y divide-cyber-cyan/10">

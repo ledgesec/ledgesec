@@ -1,5 +1,8 @@
+import { Skeleton } from "@/shared/ui/skeleton";
 import { LAND } from "@/widgets/world-map/land";
 import { formatRps } from "@/widgets/world-map/places";
+
+const SKELETON_DOMAINS = 3;
 
 const WIDTH = 1000;
 const HEIGHT = 500;
@@ -50,16 +53,27 @@ export function WorldMap({ countries }: { countries: { code: string; requests: n
 export function DomainRates({
   rps,
   domains,
+  pending = false,
 }: {
   rps: number;
   domains: { name: string; requests: number; rps: number }[];
+  pending?: boolean;
 }) {
   return (
-    <div>
+    <div aria-busy={pending ? true : undefined}>
       <p className="text-xs tracking-[0.08em] text-muted-foreground uppercase">Requests per second</p>
-      <p className="mt-2 font-mono text-5xl text-cyber-cyan">{formatRps(rps)}</p>
+      {pending ? <Skeleton className="mt-2 h-12 w-20" /> : <p className="mt-2 font-mono text-5xl text-cyber-cyan">{formatRps(rps)}</p>}
       <p className="mt-1 text-xs text-muted-foreground">Last 60 seconds, every domain on the hosts.</p>
-      {domains.length === 0 ? (
+      {pending ? (
+        <ul className="mt-6 space-y-3">
+          {Array.from({ length: SKELETON_DOMAINS }, (_, index) => (
+            <li key={index} className="flex items-center justify-between gap-3">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-10" />
+            </li>
+          ))}
+        </ul>
+      ) : domains.length === 0 ? (
         <p className="mt-6 text-sm text-muted-foreground">No requests in the last minute.</p>
       ) : (
         <ul className="mt-6 divide-y divide-cyber-cyan/10">

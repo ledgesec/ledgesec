@@ -35,15 +35,34 @@ def dump_observation(row: dict, *, include_ip: bool) -> dict:
 
 @router.get("/v1/observations")
 def observations(
-    actor: ActorDep, db: Db, cursor: str = "", direction: str = "next", ip: str = "", path: str = ""
+    actor: ActorDep,
+    db: Db,
+    cursor: str = "",
+    direction: str = "next",
+    ip: str = "",
+    path: str = "",
+    q: str = "",
+    site: str = "",
+    country: str = "",
+    edge: str = "",
 ) -> JSONResponse:
     try:
         host_ids = journal_host_ids(db, actor)
     except Unscoped:
         return JSONResponse({"observations": [], "next": None, "prev": None})
+    wide = shows_ip(actor)
     try:
         rows, nxt, prev = fetch_event_page(
-            host_ids, cursor or None, direction, ip if shows_ip(actor) else None, path or None
+            host_ids,
+            cursor or None,
+            direction,
+            ip if wide else None,
+            path or None,
+            site=site or None,
+            country=country or None,
+            edge=edge or None,
+            q=q or None,
+            wide=wide,
         )
     except ValueError as exc:
         raise ApiError(400, str(exc)) from exc
@@ -72,9 +91,24 @@ def summary(actor: ActorDep, db: Db) -> JSONResponse:
 
 
 @router.get("/v1/addresses")
-def addresses(_actor: AdminDep, cursor: str = "", direction: str = "next") -> JSONResponse:
+def addresses(
+    _actor: AdminDep,
+    cursor: str = "",
+    direction: str = "next",
+    q: str = "",
+    site: str = "",
+    country: str = "",
+    edge: str = "",
+) -> JSONResponse:
     try:
-        rows, nxt, prev = fetch_address_page(cursor or None, direction)
+        rows, nxt, prev = fetch_address_page(
+            cursor or None,
+            direction,
+            site=site or None,
+            country=country or None,
+            edge=edge or None,
+            q=q or None,
+        )
     except ValueError as exc:
         raise ApiError(400, str(exc)) from exc
     except Exception as exc:

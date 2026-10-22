@@ -1,6 +1,16 @@
 import type { HourCount } from "@/entities/observation/model";
+import { Skeleton } from "@/shared/ui/skeleton";
 
-export function HourChart({ hours, series = "requests" }: { hours: HourCount[]; series?: "requests" | "probes" }) {
+export function HourChart({
+  hours,
+  series = "requests",
+  pending = false,
+}: {
+  hours: HourCount[];
+  series?: "requests" | "probes";
+  pending?: boolean;
+}) {
+  if (pending) return <Skeleton className="h-48 w-full" />;
   const valueOf = (row: HourCount) => (series === "probes" ? row.probes : row.requests);
   const peak = Math.max(1, ...hours.map(valueOf));
   const total = hours.reduce((sum, row) => sum + valueOf(row), 0);

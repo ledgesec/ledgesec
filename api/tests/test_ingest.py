@@ -127,7 +127,39 @@ def test_request_time_is_stored_in_milliseconds(monkeypatch):
     assert request_time_ms(10**20) == 4_294_967_295
     columns = event_columns()
     assert "request_time_ms UInt32 DEFAULT 0" in columns
+    assert "ua String DEFAULT ''" in columns
     assert "ADD COLUMN IF NOT EXISTS" in columns
+
+
+def test_client_fields_are_stored_and_the_referer_is_not(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_INGEST_SECRET", "secret")
+    now_ms = int(datetime.now(UTC).timestamp() * 1000)
+    body = batch(
+        [
+            {
+                "ts": now_ms,
+                "path": "/",
+                "host": "shop.example",
+                "ip": "203.0.113.10",
+                "method": "post",
+                "status": 404,
+                "ua": "Mozilla/5.0\nX",
+                "bytes_sent": 1280,
+                "protocol": "HTTP/1.1",
+                "tls": "TLSv1.3 TLS_AES_128_GCM_SHA256",
+                "referer": "https://secret.example/a",
+            }
+        ]
+    )
+    row = json.loads(accept_batch(mac_for("secret", body), body)[0])
+    assert row["method"] == "POST"
+    assert row["status"] == 404
+    assert row["ua"] == "Mozilla/5.0X"
+    assert row["bytes_sent"] == 1280
+    assert row["protocol"] == "HTTP/1.1"
+    assert row["tls"] == "TLSv1.3 TLS_AES_128_GCM_SHA256"
+    assert "referer" not in row
+    assert "secret" not in json.dumps(row)
 
 
 def test_country_comes_from_the_local_lookup(monkeypatch):

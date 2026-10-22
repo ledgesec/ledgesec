@@ -3,6 +3,7 @@ from app.observation.addresses import address_panel
 from app.observation.geo import noted_country, tally_countries
 from app.observation.markers import marker_body
 from app.observation.page import (
+    FIND_LIMIT,
     PAGE,
     decode_address_cursor,
     decode_event_cursor,
@@ -63,11 +64,29 @@ def fetch_event_page(
     direction: str,
     ip: str | None = None,
     path: str | None = None,
+    *,
+    site: str | None = None,
+    country: str | None = None,
+    edge: str | None = None,
+    q: str | None = None,
+    wide: bool = False,
 ) -> tuple[list[dict], str | None, str | None]:
     point, way = _point(cursor, direction, decode_event_cursor)
     if ip is not None and ip != "":
         decode_address_cursor(encode_address_cursor(0, ip))
-    rows = event_page_rows(PAGE + 1, host_ids, point, way, ip or None, path or None)
+    rows = event_page_rows(
+        PAGE + 1,
+        host_ids,
+        point,
+        way,
+        ip or None,
+        path or None,
+        site=_clip(site),
+        country=_country(country),
+        edge=_clip(edge) if wide else None,
+        q=_clip(q),
+        wide=wide,
+    )
     more = len(rows) > PAGE
     rows = rows[:PAGE]
     if point is not None and way == "prev":
@@ -80,9 +99,25 @@ def fetch_event_page(
     return marked, nxt, prev
 
 
-def fetch_address_page(cursor: str | None, direction: str) -> tuple[list[dict], str | None, str | None]:
+def fetch_address_page(
+    cursor: str | None,
+    direction: str,
+    *,
+    site: str | None = None,
+    country: str | None = None,
+    edge: str | None = None,
+    q: str | None = None,
+) -> tuple[list[dict], str | None, str | None]:
     point, way = _point(cursor, direction, decode_address_cursor)
-    keys = address_key_rows(point, way, PAGE + 1)
+    keys = address_key_rows(
+        point,
+        way,
+        PAGE + 1,
+        site=_clip(site),
+        country=_country(country),
+        edge=_clip(edge),
+        q=_clip(q),
+    )
     more = len(keys) > PAGE
     keys = keys[:PAGE]
     if point is not None and way == "prev":
@@ -108,17 +143,36 @@ def fetch_address_page(cursor: str | None, direction: str) -> tuple[list[dict], 
             "probe_path": "",
             "probe_label": "",
             "country": "",
+            "ua": "",
             "paths": [],
             "requests": 0,
         }
         item["requests"] = int(key.get("count") or 0)
         item["last_ts"] = str(key.get("last_ts") or item.get("last_ts") or "")
         item["country"] = noted_country(str(key.get("country") or ""), ip)
+        item["ua"] = str(key.get("ua") or "")
         rows.append(item)
     first = encode_address_cursor(int(keys[0].get("count") or 0), str(keys[0].get("ip") or "")) if keys else None
     last = encode_address_cursor(int(keys[-1].get("count") or 0), str(keys[-1].get("ip") or "")) if keys else None
     nxt, prev = page_cursors(first, last, more=more, started=point is not None, direction=way)
     return rows, nxt, prev
+
+
+def _clip(value: str | None) -> str | None:
+    text = " ".join(str(value or "").split())
+    if text == "":
+        return None
+    return text[:FIND_LIMIT]
+
+
+def _country(value: str | None) -> str | None:
+    text = _clip(value)
+    if text is None:
+        return None
+    text = text.upper()
+    if len(text) != 2 or not text.isalpha():
+        return None
+    return text
 
 
 def _point(cursor: str | None, direction: str, decode):

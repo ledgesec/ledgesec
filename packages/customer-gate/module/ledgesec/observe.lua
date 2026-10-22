@@ -11,6 +11,8 @@ M.DEFAULT_BASE = "https://dash.ledgesec.com"
 M.INGEST_PATH = "/api/v1/observations"
 M.PATH_MAX = 160
 M.UA_MAX = 200
+M.PROTOCOL_MAX = 24
+M.TLS_MAX = 64
 M.HOST_MAX = 253
 M.BATCH_MAX = 1000
 M.BATCH_MIN = 100
@@ -65,6 +67,28 @@ function M.method_name(value)
   return value
 end
 
+function M.token_name(value, max, pattern)
+  value = M.truncate(value or "", max)
+  if value == "" or not string.match(value, pattern) then return "" end
+  return value
+end
+
+function M.protocol_name(scheme, protocol)
+  scheme = M.token_name(string.lower(scheme or ""), 8, "^https?$")
+  protocol = M.token_name(protocol, M.PROTOCOL_MAX, "^[%w%./]+$")
+  if scheme ~= "" and protocol ~= "" then return scheme .. " " .. protocol end
+  if scheme ~= "" then return scheme end
+  return protocol
+end
+
+function M.tls_name(version, cipher)
+  version = M.token_name(version, M.TLS_MAX, "^[%w%./_]+$")
+  cipher = M.token_name(cipher, M.TLS_MAX, "^[%w%./_]+$")
+  if version ~= "" and cipher ~= "" then return M.truncate(version .. " " .. cipher, M.TLS_MAX) end
+  if version ~= "" then return version end
+  return cipher
+end
+
 function M.decide(path, status, percent, roll)
   path = M.clean_path(path)
   status = tonumber(status) or 0
@@ -104,6 +128,8 @@ function M.event(req)
     sampled = req.sampled == true,
     ua = M.truncate(req.ua or "", M.UA_MAX),
     bytes_sent = tonumber(req.bytes_sent) or 0,
+    protocol = M.protocol_name(req.scheme, req.protocol),
+    tls = M.tls_name(req.tls, req.tls_cipher),
     request_time_ms = tonumber(req.request_time_ms) or 0,
   }
 end
@@ -118,6 +144,12 @@ function M.event_json(ev)
   end
   if ev.request_time_ms and ev.request_time_ms > 0 then
     extra = extra .. ',"request_time_ms":' .. math.floor(ev.request_time_ms)
+  end
+  if ev.protocol and ev.protocol ~= "" then
+    extra = extra .. ',"protocol":"' .. esc(ev.protocol) .. '"'
+  end
+  if ev.tls and ev.tls ~= "" then
+    extra = extra .. ',"tls":"' .. esc(ev.tls) .. '"'
   end
   return string.format(
     '{"ts":%d,"method":"%s","path":"%s","route_group":"%s","status":%d,"ip":"%s","host":"%s","sampled":%s%s}',
@@ -356,6 +388,10 @@ function M.note()
     host = ngx.var.host or "",
     ua = ngx.var.http_user_agent or "",
     bytes_sent = ngx.var.bytes_sent,
+    scheme = ngx.var.scheme,
+    protocol = ngx.var.server_protocol,
+    tls = ngx.var.ssl_protocol,
+    tls_cipher = ngx.var.ssl_cipher,
     request_time_ms = math.floor(request_time * 1000),
     sampled = sampled,
   })

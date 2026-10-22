@@ -34,6 +34,14 @@ local ev = observe.event({ path = "/pricing?utm=1", ts = 1000, ip = "203.0.113.1
 assert(ev.path == "/pricing")
 assert(ev.request_time_ms == 42)
 assert(string.find(observe.event_json(ev), '"request_time_ms":42', 1, true))
+local client = observe.event({
+  path = "/", ts = 1, ua = "Mozilla/5.0", scheme = "HTTPS", protocol = "HTTP/1.1", tls = "TLSv1.3", tls_cipher = "TLS_AES_128_GCM_SHA256", bytes_sent = 12,
+})
+local client_json = observe.event_json(client)
+assert(string.find(client_json, '"ua":"Mozilla/5.0"', 1, true))
+assert(string.find(client_json, '"protocol":"https HTTP/1.1"', 1, true))
+assert(string.find(client_json, '"tls":"TLSv1.3 ', 1, true))
+assert(string.find(client_json, "referer", 1, true) == nil)
 assert(ev.route_group == "document")
 assert(ev.ip == "203.0.113.10")
 assert(observe.event({ path = "/app.js", ts = 1, ip = "203.0.113.10" }).route_group == "asset")

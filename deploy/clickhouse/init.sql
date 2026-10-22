@@ -16,7 +16,13 @@ CREATE TABLE IF NOT EXISTS ledgesec.events (
     client_class LowCardinality(String),
     ja4 String,
     sampled UInt8,
-    request_time_ms UInt32
+    request_time_ms UInt32,
+    method LowCardinality(String) DEFAULT '',
+    status UInt16 DEFAULT 0,
+    ua String DEFAULT '',
+    bytes_sent UInt64 DEFAULT 0,
+    protocol LowCardinality(String) DEFAULT '',
+    tls LowCardinality(String) DEFAULT ''
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(ts)

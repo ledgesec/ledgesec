@@ -12,7 +12,13 @@ def event_columns() -> str:
         "ALTER TABLE ledgesec.events "
         "ADD COLUMN IF NOT EXISTS host_id LowCardinality(String) DEFAULT '', "
         "ADD COLUMN IF NOT EXISTS country LowCardinality(String) DEFAULT '', "
-        "ADD COLUMN IF NOT EXISTS request_time_ms UInt32 DEFAULT 0"
+        "ADD COLUMN IF NOT EXISTS request_time_ms UInt32 DEFAULT 0, "
+        "ADD COLUMN IF NOT EXISTS method LowCardinality(String) DEFAULT '', "
+        "ADD COLUMN IF NOT EXISTS status UInt16 DEFAULT 0, "
+        "ADD COLUMN IF NOT EXISTS ua String DEFAULT '', "
+        "ADD COLUMN IF NOT EXISTS bytes_sent UInt64 DEFAULT 0, "
+        "ADD COLUMN IF NOT EXISTS protocol LowCardinality(String) DEFAULT '', "
+        "ADD COLUMN IF NOT EXISTS tls LowCardinality(String) DEFAULT ''"
     )
 
 

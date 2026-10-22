@@ -41,6 +41,12 @@ class ObservationOut(BaseModel):
     ip: str | None = None
     country: str = ""
     request_time_ms: int = 0
+    method: str = ""
+    status: int = 0
+    ua: str = ""
+    bytes_sent: int = 0
+    protocol: str = ""
+    tls: str = ""
     marker: MarkerOut | None = None
 
 
@@ -53,6 +59,7 @@ class AddressOut(BaseModel):
     probe_path: str
     probe_label: str
     country: str = ""
+    ua: str = ""
     paths: list[str] = []
     requests: int = 0
 

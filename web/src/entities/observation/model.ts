@@ -8,6 +8,12 @@ export type Observation = {
   ip: string;
   country: string;
   tookMs?: number;
+  method: string;
+  status: number;
+  ua: string;
+  bytesSent: number;
+  protocol: string;
+  tls: string;
   marker: Marker | null;
 };
 
@@ -36,6 +42,7 @@ export type AddressRow = {
   probeLabel: string;
   sites: string[];
   country: string;
+  ua: string;
   paths: string[];
   lastTs: string;
   requests?: number;
@@ -68,12 +75,14 @@ export function pathMarker(path: string): Marker | null {
   return null;
 }
 
+const blankClient = { method: "", status: 0, ua: "", bytesSent: 0, protocol: "", tls: "" };
+
 export const sampleObservations: Observation[] = [
-  { ts: "2026-10-21T16:40:02.000Z", siteId: "demo", edgeId: "eu", path: "/.env", ip: "203.0.113.10", country: "US", marker: pathMarker("/.env") },
-  { ts: "2026-10-21T16:40:08.000Z", siteId: "demo", edgeId: "us", path: "/.htaccess", ip: "203.0.113.10", country: "US", marker: pathMarker("/.htaccess") },
-  { ts: "2026-10-21T16:41:14.000Z", siteId: "demo", edgeId: "module", path: "/pricing", ip: "203.0.113.10", country: "", marker: pathMarker("/pricing") },
-  { ts: "2026-10-21T16:42:33.000Z", siteId: "demo", edgeId: "eu", path: "/wp-login.php", ip: "198.51.100.24", country: "DE", marker: pathMarker("/wp-login.php") },
-  { ts: "2026-10-21T16:43:01.000Z", siteId: "demo", edgeId: "eu", path: "/app.js", ip: "192.0.2.8", country: "", marker: pathMarker("/app.js") },
+  { ts: "2026-10-21T16:40:02.000Z", siteId: "demo", edgeId: "eu", path: "/.env", ip: "203.0.113.10", country: "US", ...blankClient, marker: pathMarker("/.env") },
+  { ts: "2026-10-21T16:40:08.000Z", siteId: "demo", edgeId: "us", path: "/.htaccess", ip: "203.0.113.10", country: "US", ...blankClient, marker: pathMarker("/.htaccess") },
+  { ts: "2026-10-21T16:41:14.000Z", siteId: "demo", edgeId: "module", path: "/pricing", ip: "203.0.113.10", country: "", ...blankClient, marker: pathMarker("/pricing") },
+  { ts: "2026-10-21T16:42:33.000Z", siteId: "demo", edgeId: "eu", path: "/wp-login.php", ip: "198.51.100.24", country: "DE", ...blankClient, marker: pathMarker("/wp-login.php") },
+  { ts: "2026-10-21T16:43:01.000Z", siteId: "demo", edgeId: "eu", path: "/app.js", ip: "192.0.2.8", country: "", ...blankClient, marker: pathMarker("/app.js") },
 ];
 
 export function addressesFrom(rows: Observation[]): AddressRow[] {
@@ -87,12 +96,14 @@ export function addressesFrom(rows: Observation[]): AddressRow[] {
       probeLabel: "",
       sites: [],
       country: "",
+      ua: "",
       paths: [],
       lastTs: row.ts,
     };
     item.edges[row.edgeId] = (item.edges[row.edgeId] ?? 0) + 1;
     if (!item.sites.includes(row.siteId)) item.sites.push(row.siteId);
     if (!item.country && row.country.length === 2) item.country = row.country.toUpperCase();
+    if (!item.ua && row.ua) item.ua = row.ua;
     if (row.path && !item.paths.includes(row.path) && item.paths.length < 5) item.paths.push(row.path);
     if (row.marker) {
       item.probes += 1;

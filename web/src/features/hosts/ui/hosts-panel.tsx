@@ -5,6 +5,9 @@ import { deleteHost, readHosts, setSiteMonitoring, type HostRecord } from "@/fea
 import { AddHostWizard } from "@/features/hosts/ui/add-host-wizard";
 import { HostInstall } from "@/features/hosts/ui/host-install";
 import { Button } from "@/shared/ui/button";
+import { Skeleton } from "@/shared/ui/skeleton";
+
+const SKELETON_HOSTS = 2;
 
 export function HostsPanel({ mode }: { mode: "client" | "admin" }) {
   const [hosts, setHosts] = useState<HostRecord[] | null>(null);
@@ -52,7 +55,23 @@ export function HostsPanel({ mode }: { mode: "client" | "admin" }) {
         </Button>
       </div>
       {error ? <p className="text-cyber-red">The host list did not answer.</p> : null}
-      {!hosts && !error ? <p className="text-muted-foreground">Reading hosts.</p> : null}
+      {!hosts && !error ? (
+        <div className="space-y-4" aria-busy="true">
+          {Array.from({ length: SKELETON_HOSTS }, (_, index) => (
+            <section key={index} className="glass-panel p-4">
+              <div className="flex items-center justify-between gap-2">
+                <Skeleton className="h-6 w-40" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+              <Skeleton className="mt-3 h-3 w-28" />
+              <div className="mt-4 flex items-center justify-between gap-3 py-2">
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-7 w-16" />
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : null}
       {hosts && hosts.length === 0 ? (
         <section className="glass-panel p-6">
           <h2 className="text-xl font-bold">No hosts yet.</h2>
