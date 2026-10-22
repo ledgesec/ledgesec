@@ -1,3 +1,5 @@
+"use client";
+
 import type { Summary } from "@/entities/observation/model";
 import { Badge } from "@/shared/ui/badge";
 import { HourChart } from "@/widgets/hour-chart/ui/hour-chart";

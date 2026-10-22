@@ -1,3 +1,5 @@
+"use client";
+
 import type { Summary } from "@/entities/observation/model";
 import { siteLines } from "@/fsd/pages/cabinet/site-lines";
 import { Badge } from "@/shared/ui/badge";
@@ -24,7 +26,8 @@ export function SiteBoard({
         {lines.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">No sites in this window.</p>
         ) : (
-          <Table className="mt-4">
+          <div className="mt-4">
+          <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Site</TableHead>
@@ -44,6 +47,7 @@ export function SiteBoard({
               ))}
             </TableBody>
           </Table>
+          </div>
         )}
       </section>
       {showEdges ? (
@@ -75,7 +79,8 @@ export function SiteBoard({
         {(summary.slow ?? []).length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">No request time in this window.</p>
         ) : (
-          <Table className="mt-4">
+          <div className="mt-4">
+          <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Path</TableHead>
@@ -100,6 +105,7 @@ export function SiteBoard({
               ))}
             </TableBody>
           </Table>
+          </div>
         )}
       </section>
     </div>

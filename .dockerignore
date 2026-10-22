@@ -4,3 +4,4 @@ agent-tools
 .env
 web/node_modules
 web/.next
+theme

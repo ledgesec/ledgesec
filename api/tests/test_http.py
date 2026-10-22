@@ -179,11 +179,12 @@ def test_site_user_observations_hide_the_address(monkeypatch):
     holder.hosts = [Host(id="f274178d", label="web7.pro", collector="linux", owner_id=USER_ID)]
     seen = {}
 
-    def fake(host_ids=None, cursor=None, direction="next", ip=None):
+    def fake(host_ids=None, cursor=None, direction="next", ip=None, path=None):
         seen["hosts"] = host_ids
         seen["cursor"] = cursor
         seen["direction"] = direction
         seen["ip"] = ip
+        seen["path"] = path
         return [event_row()], None, None
 
     monkeypatch.setattr("app.http.observation.fetch_event_page", fake)
@@ -196,7 +197,7 @@ def test_site_user_observations_hide_the_address(monkeypatch):
     assert row["marker"]["code"] == "env"
     assert response.json()["next"] is None
     assert response.json()["prev"] is None
-    assert seen == {"hosts": ["f274178d"], "cursor": None, "direction": "next", "ip": None}
+    assert seen == {"hosts": ["f274178d"], "cursor": None, "direction": "next", "ip": None, "path": None}
 
 
 def test_user_without_a_host_gets_an_empty_journal(monkeypatch):
