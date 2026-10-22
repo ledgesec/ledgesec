@@ -39,7 +39,12 @@ export function CabinetShell({
         <div className="flex items-center justify-between gap-2 border-b border-cyber-cyan/10 p-4">
           <div className={`flex items-center gap-3 ${collapsed ? "w-full justify-center" : ""}`}>
             <ShieldAlert className="size-8 shrink-0 text-cyber-cyan" />
-            {collapsed ? null : <span className="text-xl font-bold">Ledgesec</span>}
+            {collapsed ? null : (
+              <span className="min-w-0">
+                <span className="block text-xl font-bold">Ledgesec</span>
+                <VersionMark />
+              </span>
+            )}
           </div>
           <Button
             variant="ghost"
@@ -58,6 +63,7 @@ export function CabinetShell({
           <div className="flex items-center gap-2 lg:hidden">
             <ShieldAlert className="size-5 text-cyber-cyan" />
             <span className="font-bold">Ledgesec</span>
+            <VersionMark />
           </div>
           <p className="hidden text-sm text-muted-foreground lg:block">{mode === "admin" ? "Admin cabinet" : "Site cabinet"}</p>
           <p className="truncate font-mono text-xs text-cyber-cyan">{email}</p>
@@ -130,9 +136,16 @@ function SectionButton({
   );
 }
 
+function VersionMark({ className = "" }: { className?: string }) {
+  const version = process.env.NEXT_PUBLIC_LEDGESEC_VERSION ?? "";
+  if (version === "") return null;
+  return <p className={`font-mono text-xs text-muted-foreground ${className}`}>v{version}</p>;
+}
+
 function SignOut({ onSignOut, collapsed }: { onSignOut: () => void; collapsed: boolean }) {
   return (
     <div className="border-t border-cyber-dark/50 p-3">
+      {collapsed ? <VersionMark className="mb-2 text-center" /> : null}
       <button
         type="button"
         onClick={onSignOut}

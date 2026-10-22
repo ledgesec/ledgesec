@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import secrets
 
+from app.codes import Code
 from app.ids import EMAIL
 
 
@@ -29,5 +30,5 @@ def new_admin(email: str, password: str) -> tuple[str, str, str]:
     email = str(email or "").strip().lower()
     password = str(password or "")
     if not EMAIL.match(email) or len(password) < 12:
-        raise ValueError("bad_admin")
+        raise ValueError(Code.BAD_ADMIN)
     return secrets.token_hex(8), email, hash_password(password)

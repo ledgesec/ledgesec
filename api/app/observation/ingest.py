@@ -5,6 +5,7 @@ import os
 import re
 from datetime import UTC, datetime, timedelta
 
+from app.codes import Code
 from app.ids import SITE_ID, site_name
 from app.observation.geo import country_of
 
@@ -22,13 +23,17 @@ def to_ipv6(ip: str) -> str:
     return "::"
 
 
+def ingest_secret() -> str:
+    return os.environ.get("LEDGESEC_INGEST_SECRET", "")
+
+
 def accept_batch(mac: str, body: bytes) -> list[str]:
-    secret = os.environ.get("LEDGESEC_INGEST_SECRET", "")
+    secret = ingest_secret()
     if secret == "":
-        raise PermissionError("ingest_disabled")
+        raise PermissionError(Code.INGEST_DISABLED)
     expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, mac):
-        raise PermissionError("bad_mac")
+        raise PermissionError(Code.BAD_MAC)
     return event_lines(body)
 
 
@@ -36,13 +41,13 @@ def event_lines(body: bytes) -> list[str]:
     parsed = json.loads(body)
     site_id = parsed.get("site_id", "")
     if not SITE_ID.match(site_id):
-        raise ValueError("bad_site")
+        raise ValueError(Code.BAD_SITE)
     edge_id = parsed.get("edge_id") or "module"
     if not SITE_ID.match(edge_id):
-        raise ValueError("bad_edge")
+        raise ValueError(Code.BAD_EDGE)
     events = parsed.get("events")
     if not isinstance(events, list) or len(events) == 0 or len(events) > MAX_EVENTS:
-        raise ValueError("bad_events")
+        raise ValueError(Code.BAD_EVENTS)
     now = datetime.now(UTC)
     lines = []
     for event in events:

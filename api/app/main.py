@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.codes import Code
 from app.db import migrate
 from app.errors import ApiError
 from app.http.access import router as access_router
@@ -46,7 +47,7 @@ def create_app(*, prepare: bool = True) -> FastAPI:
 
     @app.exception_handler(StarletteHTTPException)
     async def http_error(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
-        code = "not_found" if exc.status_code == 404 else "rejected"
+        code = Code.NOT_FOUND if exc.status_code == 404 else Code.REJECTED
         return JSONResponse(
             {"error": code},
             status_code=exc.status_code,

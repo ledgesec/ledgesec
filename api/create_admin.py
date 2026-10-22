@@ -4,10 +4,8 @@
 import getpass
 import sys
 
-from sqlalchemy import select
-
-from app.access.models import User
 from app.access.passwords import new_admin
+from app.access.service import create_admin
 from app.db import SessionLocal, migrate
 
 
@@ -20,17 +18,19 @@ def read_password():
 def main():
     if len(sys.argv) != 2:
         raise SystemExit("usage: python create_admin.py EMAIL")
+    password = read_password()
     try:
-        user_id, email, digest = new_admin(sys.argv[1], read_password())
+        new_admin(sys.argv[1], password)
     except ValueError:
         raise SystemExit("email or password was refused")
     migrate()
     with SessionLocal() as session:
-        existing = session.scalar(select(User.id).where(User.email == email))
-        if existing is not None:
-            raise SystemExit("that email is already in the database")
-        session.add(User(id=user_id, email=email, password_hash=digest, role="admin"))
-        session.commit()
+        try:
+            create_admin(session, sys.argv[1], password)
+        except ValueError as exc:
+            if str(exc) == "exists":
+                raise SystemExit("that email is already in the database")
+            raise SystemExit("email or password was refused")
     print("admin written")
 
 

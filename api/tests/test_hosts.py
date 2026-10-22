@@ -2,7 +2,14 @@ import json
 
 import pytest
 
-from app.access.hosts import create_host, set_site_enabled, split_monitored
+from app.access.actor import Actor
+from app.access.service import (
+    assign_host,
+    create_host,
+    remove_host,
+    set_site_enabled,
+    split_monitored,
+)
 from app.ids import SITE_ID, site_name
 from app.observation.geo import country_of
 
@@ -24,6 +31,9 @@ class Mem:
 
     def rollback(self):
         self.committed = False
+
+    def delete(self, row):
+        self.deleted = row
 
 
 def test_site_name_is_the_hostname_without_a_port():
@@ -90,6 +100,69 @@ def test_a_missing_site_cannot_be_toggled():
         set_site_enabled(Mem(None), "abcd1234", "shop.example", False)
     with pytest.raises(ValueError, match="bad_site"):
         set_site_enabled(Mem(None), "abcd1234", "not a host", False)
+
+
+def test_an_admin_binds_the_host_to_the_chosen_user(monkeypatch):
+    monkeypatch.setattr("app.access.service.host_id_taken", lambda _db, _host_id: False)
+    owner = "ab" * 8
+
+    class Found:
+        def __init__(self, user_id: str) -> None:
+            self.id = user_id
+
+    monkeypatch.setattr(
+        "app.access.service.get_user",
+        lambda _db, user_id: Found(user_id) if user_id == owner else None,
+    )
+    actor = Actor("ff" * 8, "admin@example.com", "admin", "")
+    db = Mem()
+    assign_host(db, actor, "Shop", "nginx", owner)
+    assert db.rows[0].owner_id == owner
+    with pytest.raises(ValueError, match="bad_owner"):
+        assign_host(Mem(), actor, "Shop", "nginx", "")
+    with pytest.raises(LookupError):
+        assign_host(Mem(), actor, "Shop", "nginx", "cd" * 8)
+
+
+def test_the_owner_receives_the_install_secret(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_INGEST_SECRET", "batch-secret")
+    monkeypatch.setattr("app.access.service.host_id_taken", lambda _db, _host_id: False)
+    owner = "ab" * 8
+
+    class Found:
+        def __init__(self, user_id: str) -> None:
+            self.id = user_id
+
+    monkeypatch.setattr(
+        "app.access.service.get_user",
+        lambda _db, user_id: Found(user_id) if user_id == owner else None,
+    )
+    user = Actor("useruseruserus11", "person@example.com", "user", "demo")
+    created = assign_host(Mem(), user, "Shop", "nginx", "")
+    assert created["ingest_secret"] == "batch-secret"
+    admin = Actor("ff" * 8, "admin@example.com", "admin", "")
+    created = assign_host(Mem(), admin, "Shop", "nginx", owner)
+    assert "ingest_secret" not in created
+
+
+def test_a_site_user_keeps_the_host_even_if_another_owner_is_sent(monkeypatch):
+    monkeypatch.setattr("app.access.service.host_id_taken", lambda _db, _host_id: False)
+    actor = Actor("useruseruserus11", "person@example.com", "user", "demo")
+    db = Mem()
+    assign_host(db, actor, "Shop", "nginx", "ab" * 8)
+    assert db.rows[0].owner_id == actor.id
+
+
+def test_removing_a_host_drops_the_row_and_keeps_the_call_in_postgres():
+    row = object()
+    db = Mem(row)
+    remove_host(db, "abcd1234", None)
+    assert db.deleted is row
+    assert db.committed
+    with pytest.raises(LookupError):
+        remove_host(Mem(None), "abcd1234", "user1")
+    with pytest.raises(ValueError, match="bad_host"):
+        remove_host(Mem(None), "bad host", None)
 
 
 def test_country_is_an_iso_code_or_empty(monkeypatch):

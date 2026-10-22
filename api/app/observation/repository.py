@@ -1,27 +1,41 @@
+from app.codes import Code
 from app.ids import SITE_ID
 from app.observation.clickhouse import (
     clickhouse_call,
     clickhouse_rows,
     ensure_event_columns,
 )
-from app.observation.markers import marker_body
-from app.observation.summary import CountRow, summarize
+
+_retained = False
 
 
-def show_ip(ip: str | None) -> str:
-    text = str(ip or "")
-    if text.startswith("::ffff:"):
-        return text[7:]
-    if text in ("", "::"):
-        return ""
-    return text
+def events_ttl() -> str:
+    return "ALTER TABLE ledgesec.events MODIFY TTL toDateTime(ts) + INTERVAL 3 YEAR"
+
+
+def minute_ttl() -> str:
+    return "ALTER TABLE ledgesec.events_minute MODIFY TTL minute + INTERVAL 3 YEAR"
+
+
+def retain_events() -> None:
+    global _retained
+    if _retained:
+        return
+    clickhouse_call(events_ttl())
+    clickhouse_call(minute_ttl())
+    _retained = True
+
+
+def prepare_journal() -> None:
+    ensure_event_columns()
+    retain_events()
 
 
 def site_predicate(site_id: str | None) -> tuple[str, dict[str, str]]:
     if site_id is None:
         return "", {}
     if not SITE_ID.match(site_id):
-        raise ValueError("bad_site")
+        raise ValueError(Code.BAD_SITE)
     return "site_id = {site:String}", {"site": site_id}
 
 
@@ -40,27 +54,15 @@ def count_query(site_id: str | None) -> tuple[str, dict[str, str]]:
     return sql, params
 
 
-def fetch_summary(site_id: str | None = None) -> dict:
-    ensure_event_columns()
+def summary_rows(site_id: str | None) -> list[dict]:
+    prepare_journal()
     sql, params = count_query(site_id)
-    rows = [
-        CountRow(
-            path=str(row.get("path") or ""),
-            hour=str(row.get("hour") or ""),
-            edge_id=str(row.get("edge_id") or ""),
-            site_id=str(row.get("site_id") or ""),
-            count=int(row.get("count") or 0),
-        )
-        for row in clickhouse_rows(sql, params)
-    ]
-    return summarize(rows)
+    return clickhouse_rows(sql, params)
 
 
-def fetch_events(limit: int, site_id: str | None = None) -> list[dict]:
-    ensure_event_columns()
+def event_rows(limit: int, site_id: str | None) -> list[dict]:
+    prepare_journal()
     limit = int(limit)
-    if limit < 1 or limit > 1000:
-        raise ValueError("bad_limit")
     predicate, params = site_predicate(site_id)
     where = f"WHERE {predicate} " if predicate else ""
     sql = (
@@ -69,17 +71,9 @@ def fetch_events(limit: int, site_id: str | None = None) -> list[dict]:
         "FROM ledgesec.events "
         f"{where}ORDER BY ts DESC LIMIT {limit} FORMAT JSONEachRow"
     )
-    rows = []
-    for row in clickhouse_rows(sql, params):
-        row["marker"] = marker_body(row.get("path"))
-        row["ip"] = show_ip(row.get("ip"))
-        rows.append(row)
-    return rows
+    return clickhouse_rows(sql, params)
 
 
-def insert_observations(lines: list[str]) -> int:
-    if not lines:
-        return 0
-    ensure_event_columns()
+def insert_events(lines: list[str]) -> None:
+    prepare_journal()
     clickhouse_call("INSERT INTO ledgesec.events FORMAT JSONEachRow", payload="\n".join(lines) + "\n")
-    return len(lines)

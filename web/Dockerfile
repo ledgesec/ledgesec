@@ -1,8 +1,9 @@
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY web/package.json web/package-lock.json ./
 RUN npm ci
-COPY . .
+COPY web/ .
+COPY VERSION ./VERSION
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 

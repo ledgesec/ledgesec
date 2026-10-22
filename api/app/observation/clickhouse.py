@@ -19,6 +19,10 @@ def ensure_event_columns() -> None:
     _columns_ready = True
 
 
+def ping() -> None:
+    clickhouse_call("SELECT 1")
+
+
 def clickhouse_call(sql: str, params: dict[str, str] | None = None, payload: str | None = None) -> bytes:
     database = urllib.parse.quote(os.environ.get("CLICKHOUSE_DB", "ledgesec"), safe="")
     query = urllib.parse.quote(sql, safe="")

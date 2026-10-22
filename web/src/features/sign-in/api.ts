@@ -1,3 +1,5 @@
+import { apiError } from "@/shared/lib/api-error";
+
 export type SessionUser = {
   id: string;
   email: string;
@@ -8,7 +10,7 @@ export type SessionUser = {
 export async function readSession(): Promise<SessionUser | null> {
   const response = await fetch("/api/v1/session", { credentials: "include" });
   if (response.status === 401) return null;
-  if (!response.ok) throw new Error("unavailable");
+  if (!response.ok) throw new Error(apiError.unavailable);
   return response.json();
 }
 
@@ -19,8 +21,8 @@ export async function signIn(email: string, password: string): Promise<SessionUs
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
-  if (response.status === 401) throw new Error("refused");
-  if (!response.ok) throw new Error("unavailable");
+  if (response.status === 401) throw new Error(apiError.refused);
+  if (!response.ok) throw new Error(apiError.unavailable);
   return response.json();
 }
 

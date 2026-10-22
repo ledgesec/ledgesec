@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import pytest
 
 from app.http.schemas import SummaryOut
-from app.observation.journal import count_query
+from app.observation.repository import count_query, events_ttl, minute_ttl
 from app.observation.summary import CountRow, summarize
 
 
@@ -55,3 +55,14 @@ def test_count_query_filters_by_site_and_does_not_encode_probe_rules():
     assert "site_id = {site:String}" in scoped
     with pytest.raises(ValueError):
         count_query("bad site")
+
+
+def test_a_journal_row_lives_for_three_years_and_is_not_deleted_by_hand():
+    events = events_ttl()
+    minutes = minute_ttl()
+    assert "INTERVAL 3 YEAR" in events
+    assert "INTERVAL 3 YEAR" in minutes
+    assert "DELETE" not in events
+    assert "DELETE" not in minutes
+    assert "30 DAY" not in events
+    assert "180 DAY" not in minutes

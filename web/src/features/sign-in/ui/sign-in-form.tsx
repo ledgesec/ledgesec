@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { signIn, type SessionUser } from "@/features/sign-in/api";
+import { apiError } from "@/shared/lib/api-error";
 import { signInSchema } from "@/features/sign-in/schema";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -37,7 +38,10 @@ export function SignInForm({ onSignIn }: { onSignIn: (user: SessionUser) => void
         signIn(parsed.data.email, parsed.data.password)
           .then(onSignIn)
           .catch((reason: Error) => {
-            setError(reason.message === "refused" ? "That sign-in was refused." : "The dashboard did not answer.");
+            const signInFailure: Record<string, string> = {
+              [apiError.refused]: "That sign-in was refused.",
+            };
+            setError(signInFailure[reason.message] ?? "The dashboard did not answer.");
           })
           .finally(() => setPending(false));
       }}

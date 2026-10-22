@@ -72,7 +72,9 @@ services:
     restart: unless-stopped
 
   web:
-    build: ./web
+    build:
+      context: .
+      dockerfile: web/Dockerfile
     environment:
       PORT: "8080"
       HOSTNAME: 0.0.0.0

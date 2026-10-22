@@ -119,6 +119,8 @@ class HostOut(BaseModel):
     id: str
     label: str
     collector: str
+    owner_email: str = ""
+    ingest_secret: str = ""
     sites: list[HostSiteOut]
 
 
@@ -129,8 +131,9 @@ class HostsOut(BaseModel):
 class NewHost(BaseModel):
     label: str = ""
     collector: str = ""
+    owner_id: str = ""
 
-    @field_validator("label", "collector", mode="before")
+    @field_validator("label", "collector", "owner_id", mode="before")
     @classmethod
     def as_text(cls, value: object) -> str:
         if value is None:

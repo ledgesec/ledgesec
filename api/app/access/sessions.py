@@ -4,10 +4,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 
-from sqlalchemy.orm import Session
-
-from app.access.actor import Actor
-from app.access.models import User
+from app.codes import Code
 
 
 def session_secret() -> str:
@@ -17,7 +14,7 @@ def session_secret() -> str:
 def sign_session(user_id: str) -> str:
     secret = session_secret()
     if secret == "":
-        raise PermissionError("session_unconfigured")
+        raise PermissionError(Code.SESSION_UNCONFIGURED)
     exp = int((datetime.now(UTC) + timedelta(hours=12)).timestamp())
     message = f"v1.{user_id}.{exp}"
     mac = hmac.new(secret.encode(), message.encode(), sha256).hexdigest()
@@ -41,16 +38,6 @@ def read_user_id(token: str) -> str | None:
     except ValueError:
         return None
     return user_id
-
-
-def open_session(token: str, db: Session) -> Actor | None:
-    user_id = read_user_id(token)
-    if user_id is None:
-        return None
-    row = db.get(User, user_id)
-    if row is None:
-        return None
-    return Actor(row.id, row.email, row.role, row.site_id or "")
 
 
 def session_cookie(token: str, *, clear: bool = False) -> str:

@@ -1,15 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { readHosts, setSiteMonitoring, type HostRecord } from "@/features/hosts/api";
+import { deleteHost, readHosts, setSiteMonitoring, type HostRecord } from "@/features/hosts/api";
 import { AddHostWizard } from "@/features/hosts/ui/add-host-wizard";
+import { HostInstall } from "@/features/hosts/ui/host-install";
 import { Button } from "@/shared/ui/button";
 
-export function HostsPanel() {
+export function HostsPanel({ mode }: { mode: "client" | "admin" }) {
   const [hosts, setHosts] = useState<HostRecord[] | null>(null);
   const [error, setError] = useState(false);
   const [adding, setAdding] = useState(false);
   const [pending, setPending] = useState("");
+  const [confirming, setConfirming] = useState("");
 
   const load = useCallback(() => {
     readHosts()
@@ -31,6 +33,7 @@ export function HostsPanel() {
     return (
       <div className="mt-6">
         <AddHostWizard
+          mode={mode}
           onDone={() => {
             setAdding(false);
             load();
@@ -58,11 +61,49 @@ export function HostsPanel() {
       ) : null}
       {hosts?.map((host) => (
         <section key={host.id} className="glass-panel p-4">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold">{host.label}</h2>
-            <p className="font-mono text-xs text-cyber-cyan">{host.id}</p>
+            <div className="flex items-center gap-3">
+              <p className="font-mono text-xs text-cyber-cyan">{host.id}</p>
+              {confirming === host.id ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={pending === host.id}
+                    onClick={() => {
+                      setPending(host.id);
+                      deleteHost(host.id)
+                        .then(() => {
+                          setConfirming("");
+                          load();
+                        })
+                        .catch(() => setError(true))
+                        .finally(() => setPending(""));
+                    }}
+                  >
+                    Delete host
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setConfirming("")}>
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <Button type="button" variant="outline" size="sm" onClick={() => setConfirming(host.id)}>
+                  Delete
+                </Button>
+              )}
+            </div>
           </div>
+          {confirming === host.id ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Stored requests stay for 3 years. This host stops taking new ones.
+            </p>
+          ) : null}
           <p className="mt-1 text-xs tracking-[0.08em] text-muted-foreground uppercase">{host.collector}</p>
+          {host.owner_email ? <p className="mt-1 text-sm text-muted-foreground">{host.owner_email}</p> : null}
+          {mode === "client" ? <HostInstall hostId={host.id} secret={host.ingest_secret ?? ""} /> : null}
           {host.sites.length === 0 ? <p className="mt-4 text-sm text-muted-foreground">No sites yet.</p> : null}
           <ul className="mt-3 divide-y divide-cyber-cyan/10">
             {host.sites.map((site) => {

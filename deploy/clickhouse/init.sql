@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS ledgesec.events (
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(ts)
 ORDER BY (site_id, ts)
-TTL toDateTime(ts) + INTERVAL 30 DAY;
+TTL toDateTime(ts) + INTERVAL 3 YEAR;
 
 CREATE TABLE IF NOT EXISTS ledgesec.events_minute (
     minute DateTime('UTC'),
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS ledgesec.events_minute (
 ENGINE = SummingMergeTree
 PARTITION BY toYYYYMM(minute)
 ORDER BY (site_id, minute, decision, reason)
-TTL minute + INTERVAL 180 DAY;
+TTL minute + INTERVAL 3 YEAR;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS ledgesec.events_minute_mv
 TO ledgesec.events_minute

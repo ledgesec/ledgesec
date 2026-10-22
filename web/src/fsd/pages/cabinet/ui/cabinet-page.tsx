@@ -123,7 +123,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: "client" | "ad
           ? "Add a host once. Sites on it appear from the requests, and you can turn one off."
           : "Observation records the request and lets it through. The last 24 hours."}
       </p>
-      {section === "hosts" ? <HostsPanel /> : null}
+      {section === "hosts" ? <HostsPanel mode={mode} /> : null}
       {journalError && section !== "hosts" ? <p className="mt-8 text-cyber-red">The journal did not answer.</p> : null}
       {!journal && !journalError && section !== "hosts" ? <p className="mt-8 text-muted-foreground">Reading the journal.</p> : null}
       {journal && section === "overview" ? <Overview summary={journal.summary} mode={mode} /> : null}

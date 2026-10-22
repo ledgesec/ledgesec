@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.observation.ingest import accept_batch, to_ipv6
-from app.observation.journal import show_ip
+from app.observation.service import show_ip
 
 
 def batch(events, site_id="demo", edge_id="eu"):

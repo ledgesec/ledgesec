@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { createHost, type HostRecord } from "@/features/hosts/api";
-import { hostCollectorSchema, hostLabelSchema } from "@/features/hosts/schema";
+import { useEffect, useState } from "react";
+import { createHost, readAccounts, type AccountRecord, type HostRecord } from "@/features/hosts/api";
+import { hostCollectorSchema, hostLabelSchema, hostOwnerSchema } from "@/features/hosts/schema";
+import { HostInstall } from "@/features/hosts/ui/host-install";
+import { apiError } from "@/shared/lib/api-error";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -22,15 +24,35 @@ const methods = [
 
 type Step = (typeof steps)[number]["id"];
 
-export function AddHostWizard({ onDone }: { onDone: () => void }) {
+export function AddHostWizard({ mode, onDone }: { mode: "client" | "admin"; onDone: () => void }) {
   const [step, setStep] = useState<Step>("name");
   const [label, setLabel] = useState("");
   const [labelError, setLabelError] = useState("");
+  const [ownerId, setOwnerId] = useState("");
+  const [ownerError, setOwnerError] = useState("");
+  const [accounts, setAccounts] = useState<AccountRecord[] | null>(null);
+  const [accountsError, setAccountsError] = useState(false);
   const [collector, setCollector] = useState("nginx");
   const [collectorError, setCollectorError] = useState("");
   const [pending, setPending] = useState(false);
   const [created, setCreated] = useState<HostRecord | null>(null);
   const index = steps.findIndex((item) => item.id === step);
+  const ownerEmail = accounts?.find((account) => account.id === ownerId)?.email ?? "";
+
+  useEffect(() => {
+    if (mode !== "admin") return;
+    let cancelled = false;
+    readAccounts()
+      .then((rows) => {
+        if (!cancelled) setAccounts(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setAccountsError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode]);
 
   return (
     <section className="glass-panel mx-auto w-full max-w-2xl p-6 sm:p-8">
@@ -58,12 +80,12 @@ export function AddHostWizard({ onDone }: { onDone: () => void }) {
             event.preventDefault();
             const data = new FormData(event.currentTarget);
             const parsed = hostLabelSchema.safeParse({ label: String(data.get("label") ?? "") });
-            if (!parsed.success) {
-              setLabelError(parsed.error.flatten().fieldErrors.label?.[0] ?? "");
-              return;
-            }
+            const owner = mode === "admin" ? hostOwnerSchema.safeParse({ ownerId: String(data.get("owner_id") ?? "") }) : null;
+            setLabelError(parsed.success ? "" : (parsed.error.flatten().fieldErrors.label?.[0] ?? ""));
+            setOwnerError(owner && !owner.success ? (owner.error.flatten().fieldErrors.ownerId?.[0] ?? "") : "");
+            if (!parsed.success || (owner && !owner.success)) return;
             setLabel(parsed.data.label);
-            setLabelError("");
+            if (owner?.success) setOwnerId(owner.data.ownerId);
             setStep("connection");
           }}
         >
@@ -71,6 +93,30 @@ export function AddHostWizard({ onDone }: { onDone: () => void }) {
             <h2 className="text-2xl font-bold">Name this host.</h2>
             <p className="mt-2 text-sm text-muted-foreground">One server can carry many sites. Their names show up from the requests.</p>
           </div>
+          {mode === "admin" ? (
+            <label className="relative grid gap-1 text-sm text-muted-foreground">
+              Account
+              <select
+                name="owner_id"
+                value={ownerId}
+                onChange={(event) => setOwnerId(event.target.value)}
+                disabled={accounts === null}
+                aria-invalid={ownerError !== "" || accountsError}
+                aria-describedby="host-owner-error"
+                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive"
+              >
+                <option value="">{accounts === null ? "Reading accounts." : "Choose an account"}</option>
+                {accounts?.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.email}
+                  </option>
+                ))}
+              </select>
+              <span id="host-owner-error" className="absolute top-full left-0 z-10 mt-0.5 text-xs leading-none text-destructive">
+                {accountsError ? "The account list did not answer." : ownerError}
+              </span>
+            </label>
+          ) : null}
           <Label className="relative grid gap-1 text-muted-foreground">
             Host name
             <Input
@@ -144,19 +190,18 @@ export function AddHostWizard({ onDone }: { onDone: () => void }) {
                 }
                 setCollectorError("");
                 setPending(true);
-                createHost(label, parsed.data.collector)
+                createHost(label, parsed.data.collector, mode === "admin" ? ownerId : "")
                   .then((host) => {
                     setCreated(host);
                     setStep("install");
                   })
                   .catch((reason: Error) => {
-                    setCollectorError(
-                      reason.message === "unavailable"
-                        ? "That connection is not available yet."
-                        : reason.message === "refused"
-                          ? "Check the host name."
-                          : "The dashboard did not answer.",
-                    );
+                    const hostFailure: Record<string, string> = {
+                      [apiError.unavailable]: "That connection is not available yet.",
+                      [apiError.badOwner]: "Choose an account that exists.",
+                      [apiError.refused]: "Check the host name.",
+                    };
+                    setCollectorError(hostFailure[reason.message] ?? "The dashboard did not answer.");
                   })
                   .finally(() => setPending(false));
               }}
@@ -169,18 +214,19 @@ export function AddHostWizard({ onDone }: { onDone: () => void }) {
 
       {step === "install" && created ? (
         <div className="mt-8 grid gap-6">
-          <div>
-            <h2 className="text-2xl font-bold">{created.label} is ready.</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Put this host id in the module. Each request’s Host header becomes a site under this host. Turn off any site you do not want to monitor.
-            </p>
-          </div>
-          <pre className="overflow-x-auto rounded-lg border border-cyber-cyan/15 bg-black/40 p-4 font-mono text-xs leading-6 text-cyber-cyan">
-            {`LEDGESEC_SITE_ID=${created.id}\nLEDGESEC_INGEST_SECRET=<same secret as the API>`}
-          </pre>
-          <p className="text-sm text-muted-foreground">
-            Country is read on the API from a local database when the batch arrives. The visitor request does not look it up. Without that file the country stays empty.
-          </p>
+          {mode === "admin" ? (
+            <div>
+              <h2 className="text-2xl font-bold">{created.label} is on {ownerEmail || "the account"}.</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {ownerEmail || "That account"} opens Hosts and copies the install lines onto the server.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <h2 className="text-2xl font-bold">{created.label} is ready.</h2>
+              <HostInstall hostId={created.id} secret={created.ingest_secret ?? ""} />
+            </div>
+          )}
           <Button type="button" onClick={onDone}>
             Done
           </Button>

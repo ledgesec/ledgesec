@@ -8,4 +8,6 @@ export const hostCollectorSchema = z.object({
   collector: z.string().refine((value) => value === "nginx", "Nginx is the connection available now."),
 });
 
-export type HostLabel = z.infer<typeof hostLabelSchema>;
+export const hostOwnerSchema = z.object({
+  ownerId: z.string().trim().min(1, "Choose the account that owns this host."),
+});

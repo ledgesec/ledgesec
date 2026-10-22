@@ -309,35 +309,63 @@ def test_admin_can_refuse_a_short_site_user(monkeypatch):
 
 def test_admin_adds_an_nginx_host(monkeypatch):
     monkeypatch.setenv("LEDGESEC_SESSION_SECRET", SECRET)
-    monkeypatch.setattr(
-        "app.http.access.create_host",
-        lambda _db, label, collector, _owner: {
-            "id": "abcd1234",
-            "label": label.strip(),
-            "collector": collector,
-            "sites": [],
-        },
-    )
+    seen = {}
+
+    def assign(_db, actor, label, collector, owner_id):
+        seen["role"] = actor.role
+        seen["owner"] = owner_id
+        return {"id": "abcd1234", "label": label.strip(), "collector": collector, "sites": []}
+
+    monkeypatch.setattr("app.http.access.assign_host", assign)
     holder = Holder()
     holder.user = admin()
     client = client_for(holder)
     client.cookies.set("ledgesec_session", sign_session(USER_ID))
-    response = client.post("/v1/hosts", json={"label": " Shop ", "collector": "nginx"})
+    response = client.post(
+        "/v1/hosts",
+        json={"label": " Shop ", "collector": "nginx", "owner_id": "cd" * 8},
+    )
     assert response.status_code == 201
     assert response.json()["id"] == "abcd1234"
     assert response.json()["collector"] == "nginx"
     assert response.json()["sites"] == []
+    assert seen == {"role": "admin", "owner": "cd" * 8}
+
+
+def test_an_admin_must_choose_an_account(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_SESSION_SECRET", SECRET)
+    holder = Holder()
+    holder.user = admin()
+    client = client_for(holder)
+    client.cookies.set("ledgesec_session", sign_session(USER_ID))
+    response = client.post("/v1/hosts", json={"label": "Shop", "collector": "nginx"})
+    assert response.status_code == 400
+    assert response.json() == {"error": "bad_owner"}
+
+
+def test_an_unknown_account_cannot_own_a_host(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_SESSION_SECRET", SECRET)
+    holder = Holder()
+    holder.user = admin()
+    client = client_for(holder)
+    client.cookies.set("ledgesec_session", sign_session(USER_ID))
+    response = client.post(
+        "/v1/hosts",
+        json={"label": "Shop", "collector": "nginx", "owner_id": "cd" * 8},
+    )
+    assert response.status_code == 404
+    assert response.json() == {"error": "not_found"}
 
 
 def test_a_site_user_adds_their_own_host(monkeypatch):
     monkeypatch.setenv("LEDGESEC_SESSION_SECRET", SECRET)
     seen = {}
 
-    def create(_db, label, collector, owner_id):
-        seen["owner"] = owner_id
+    def assign(_db, _actor, label, collector, _owner_id):
+        seen["owner"] = _actor.id
         return {"id": "abcd1234", "label": label, "collector": collector, "sites": []}
 
-    monkeypatch.setattr("app.http.access.create_host", create)
+    monkeypatch.setattr("app.http.access.assign_host", assign)
     holder = Holder()
     holder.user = admin()
     holder.user.role = "user"
@@ -355,6 +383,57 @@ def test_apache_is_not_available_yet(monkeypatch):
     holder.user = admin()
     client = client_for(holder)
     client.cookies.set("ledgesec_session", sign_session(USER_ID))
-    response = client.post("/v1/hosts", json={"label": "Shop", "collector": "apache"})
+    response = client.post(
+        "/v1/hosts",
+        json={"label": "Shop", "collector": "apache", "owner_id": USER_ID},
+    )
     assert response.status_code == 400
     assert response.json() == {"error": "unavailable"}
+
+
+def test_a_site_user_deletes_their_own_host(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_SESSION_SECRET", SECRET)
+    seen = {}
+
+    def remove(_db, host_id, owner_id):
+        seen["host"] = host_id
+        seen["owner"] = owner_id
+
+    monkeypatch.setattr("app.http.access.remove_host", remove)
+    holder = Holder()
+    holder.user = admin()
+    holder.user.role = "user"
+    holder.user.site_id = "demo"
+    client = client_for(holder)
+    client.cookies.set("ledgesec_session", sign_session(USER_ID))
+    response = client.delete("/v1/hosts/abcd1234")
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert seen == {"host": "abcd1234", "owner": USER_ID}
+
+
+def test_a_missing_host_cannot_be_deleted(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_SESSION_SECRET", SECRET)
+
+    def remove(_db, _host_id, _owner):
+        raise LookupError("missing")
+
+    monkeypatch.setattr("app.http.access.remove_host", remove)
+    holder = Holder()
+    holder.user = admin()
+    client = client_for(holder)
+    client.cookies.set("ledgesec_session", sign_session(USER_ID))
+    response = client.delete("/v1/hosts/abcd1234")
+    assert response.status_code == 404
+    assert response.json() == {"error": "not_found"}
+
+
+def test_a_bad_host_id_is_refused(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_SESSION_SECRET", SECRET)
+    holder = Holder()
+    holder.user = admin()
+    client = client_for(holder)
+    client.cookies.set("ledgesec_session", sign_session(USER_ID))
+    response = client.delete("/v1/hosts/bad%20id")
+    assert response.status_code == 400
+    assert response.json() == {"error": "bad_host"}

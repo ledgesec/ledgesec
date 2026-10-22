@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { hostCollectorSchema, hostLabelSchema } from "./schema.ts";
+import { hostCollectorSchema, hostLabelSchema, hostOwnerSchema } from "./schema.ts";
 
 test("a host name is trimmed and required", () => {
   const parsed = hostLabelSchema.safeParse({ label: "  Shop EU  " });
@@ -20,4 +20,13 @@ test("only the nginx connection can be added", () => {
   }
   assert.equal(hostCollectorSchema.safeParse({ collector: "dns" }).success, false);
   assert.equal(hostCollectorSchema.safeParse({ collector: "linux" }).success, false);
+});
+
+test("an account is required when an admin adds a host", () => {
+  const blank = hostOwnerSchema.safeParse({ ownerId: "  " });
+  assert.equal(blank.success, false);
+  if (!blank.success) {
+    assert.equal(blank.error.flatten().fieldErrors.ownerId?.[0], "Choose the account that owns this host.");
+  }
+  assert.equal(hostOwnerSchema.safeParse({ ownerId: "ab".repeat(8) }).success, true);
 });

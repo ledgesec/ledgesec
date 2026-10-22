@@ -5,13 +5,9 @@ from fastapi.responses import JSONResponse
 
 from app.db import postgres_ready
 from app.http.schemas import HealthOut
-from app.observation.clickhouse import clickhouse_call
+from app.observation.clickhouse import ping as clickhouse_ready
 
 router = APIRouter()
-
-
-def clickhouse_ready() -> None:
-    clickhouse_call("SELECT 1")
 
 
 def probe(check) -> str:
