@@ -12,6 +12,7 @@ export const CLEAR = "Clear";
 export const FILTERS = "Filters";
 export const ALL = "All";
 export const NO_MATCH = "Nothing matches.";
+export const MATCHES_FOR = "Showing matches for";
 export const FIELD_SITE = "Site";
 export const FIELD_COUNTRY = "Country";
 export const FIELD_EDGE = "Edge";

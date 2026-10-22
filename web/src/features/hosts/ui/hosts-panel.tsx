@@ -90,7 +90,7 @@ export function HostsPanel({ mode }: { mode: "client" | "admin" }) {
                     type="button"
                     variant="destructive"
                     size="sm"
-                    disabled={pending === host.id}
+                    pending={pending === host.id}
                     onClick={() => {
                       setPending(host.id);
                       deleteHost(host.id)
@@ -143,7 +143,7 @@ export function HostsPanel({ mode }: { mode: "client" | "admin" }) {
                       type="button"
                       variant="outline"
                       size="sm"
-                      disabled={pending === key}
+                      pending={pending === key}
                       onClick={() => {
                         setPending(key);
                         setSiteMonitoring(host.id, site.name, !site.enabled)

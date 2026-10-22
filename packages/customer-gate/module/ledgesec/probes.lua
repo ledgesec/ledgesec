@@ -176,6 +176,18 @@ local rules = {
     suffixes = { "/vendor/composer/installed.json" },
     contains = { "/composer.lock" },
   },
+  {
+    exact = {  },
+    prefixes = { "/wp-", "/wordpress/", "/uploads/" },
+    suffixes = {  },
+    contains = {  },
+  },
+  {
+    exact = { "/wk/index.php" },
+    prefixes = {  },
+    suffixes = { "/222.php", "/ms-edit.php", "/defaults.php", "/classwithtostring.php", "/chosen.php", "/autoload_classmap.php", "/kbfr.php", "/sf.php", "/class-t.api.php", "/goods.php", "/adminfuns.php", "/file.php", "/about.php", "/as.php", "/abcd.php", "/abc.php", "/404.php", "/ws.php", "/randkeyword.php7", "/function.php", "/an.php", "/themes.php", "/cache.php", "/admin.php", "/rip.php", "/ioxi-o.php", "/inputs.php" },
+    contains = {  },
+  },
 }
 
 local function has_prefix(path, prefix)

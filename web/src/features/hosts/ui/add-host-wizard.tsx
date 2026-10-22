@@ -212,7 +212,7 @@ export function AddHostWizard({ mode, onDone }: { mode: "client" | "admin"; onDo
             </Button>
             <Button
               type="button"
-              disabled={pending}
+              pending={pending}
               onClick={() => {
                 const parsed = hostCollectorSchema.safeParse({ collector });
                 if (!parsed.success) {
@@ -237,7 +237,7 @@ export function AddHostWizard({ mode, onDone }: { mode: "client" | "admin"; onDo
                   .finally(() => setPending(false));
               }}
             >
-              {pending ? "Adding host" : "Continue"}
+              Continue
             </Button>
           </div>
         </div>

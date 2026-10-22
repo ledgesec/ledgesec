@@ -11,6 +11,7 @@ import {
   FIELD_EDGE,
   FIELD_SITE,
   CLEAR,
+  MATCHES_FOR,
   NO_MATCH,
   QUERY,
   SITE,
@@ -93,6 +94,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
   const [lookupHeld, setLookupHeld] = useState(false);
   const [refreshSeconds, setRefreshSeconds] = useState<RefreshSeconds>(DEFAULT_REFRESH_SECONDS);
   const [freshRequests, setFreshRequests] = useState<string[]>([]);
+  const [leaving, setLeaving] = useState(false);
   if (seenLookup !== lookupKey) {
     setSeenLookup(lookupKey);
     if (journal && (section === REQUESTS || (section === ADDRESSES && mode === ADMIN))) setLookupHeld(true);
@@ -306,7 +308,10 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
   }, [load]);
 
   function leave() {
+    if (leaving) return;
+    setLeaving(true);
     signOut().finally(() => {
+      setLeaving(false);
       setUser(null);
       setJournal(null);
       setPhase("out");
@@ -359,9 +364,9 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
           <a href={other} className="mt-6 inline-block text-sm text-cyber-cyan">
             {mode === ADMIN ? "Open the site cabinet" : "Open the admin cabinet"}
           </a>
-          <button type="button" onClick={leave} className="mt-4 block text-sm text-muted-foreground">
+          <Button type="button" variant="ghost" className="mt-4 text-muted-foreground" pending={leaving} onClick={leave}>
             Sign out
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -433,6 +438,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
       email={user.email}
       section={section}
       pulse={journal ? { requests: journal.summary.requests, probes: journal.summary.probes, rps: journal.summary.rps } : null}
+      leaving={leaving}
       onSignOut={leave}
     >
       <h1 className="text-3xl font-bold">{titleOf(section)}</h1>
@@ -489,6 +495,11 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
             edges={(journal?.summary.edges ?? []).map((edge) => edge.id)}
             onHold={setSearchHeld}
           />
+          {tableFields.q.trim() !== "" ? (
+            <p className="mb-3 text-sm text-muted-foreground">
+              {MATCHES_FOR} <span className="font-mono text-foreground">{tableFields.q.trim()}</span>
+            </p>
+          ) : null}
           <HoldRegion held={searchHeld || lookupHeld}>
           <RequestList
             rows={journal?.observations ?? []}
@@ -496,6 +507,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
             showEdge={mode === ADMIN}
             showAddress={mode === ADMIN}
             onAddress={openAddress}
+            find={tableFields.q}
             fresh={freshRequests}
             empty={
               tableFields.q !== "" || tableFields.site !== "" || tableFields.country !== "" || tableFields.edge !== ""
@@ -770,6 +782,11 @@ function Overview({
                 : []),
             ]}
           />
+          {appliedQuery.trim() !== "" ? (
+            <p className="mb-3 text-sm text-muted-foreground">
+              {MATCHES_FOR} <span className="font-mono text-foreground">{appliedQuery.trim()}</span>
+            </p>
+          ) : null}
           <HoldRegion held={queryHeld}>
             <RequestList
               rows={rows}
@@ -777,6 +794,7 @@ function Overview({
               showEdge={admin}
               showAddress={admin}
               onAddress={onRequests}
+              find={appliedQuery}
               fresh={freshRequests}
               empty={appliedQuery !== "" || site !== "" || country !== "" || pickedEdge !== "" ? NO_MATCH : undefined}
             />

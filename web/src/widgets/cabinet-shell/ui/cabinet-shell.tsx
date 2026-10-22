@@ -14,7 +14,7 @@ import {
   type CabinetSection,
 } from "@/shared/lib/cabinet-section";
 import { ADMIN, type CabinetMode } from "@/shared/lib/role";
-import { Button } from "@/shared/ui/button";
+import { Button, ButtonPending } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { LIVE, PULSE_PROBES, PULSE_REQUESTS, PULSE_RPS, RECORDING, pulseCells } from "@/widgets/cabinet-shell/pulse";
 import { formatRps } from "@/widgets/world-map/places";
@@ -38,6 +38,7 @@ export function CabinetShell({
   email,
   section,
   pulse,
+  leaving = false,
   onSignOut,
   children,
 }: {
@@ -46,6 +47,7 @@ export function CabinetShell({
   email: string;
   section: CabinetSection;
   pulse: CabinetPulse | null;
+  leaving?: boolean;
   onSignOut: () => void;
   children: ReactNode;
 }) {
@@ -77,7 +79,7 @@ export function CabinetShell({
           </button>
         </div>
         <Nav host={host} mode={mode} nav={nav} section={section} pulse={pulse} collapsed={collapsed} />
-        <SignOut onSignOut={onSignOut} collapsed={collapsed} />
+        <SignOut onSignOut={onSignOut} collapsed={collapsed} pending={leaving} />
       </aside>
       <div className={`flex min-w-0 flex-1 flex-col ${pad}`}>
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-cyber-cyan/10 bg-cyber-black/80 px-4 backdrop-blur-xl sm:px-6">
@@ -93,7 +95,7 @@ export function CabinetShell({
           {nav.map((item) => (
             <SectionLink key={item.id} host={host} mode={mode} item={item} active={section === item.id} pulse={pulse} />
           ))}
-          <Button variant="ghost" size="sm" onClick={onSignOut}>
+          <Button variant="ghost" size="sm" pending={leaving} onClick={onSignOut}>
             Sign out
           </Button>
         </nav>
@@ -208,16 +210,18 @@ function VersionMark({ className = "" }: { className?: string }) {
   return <p className={`font-mono text-xs text-white/35 ${className}`}>v{version}</p>;
 }
 
-function SignOut({ onSignOut, collapsed }: { onSignOut: () => void; collapsed: boolean }) {
+function SignOut({ onSignOut, collapsed, pending }: { onSignOut: () => void; collapsed: boolean; pending: boolean }) {
   return (
     <div className="border-t border-white/5 p-3">
       {collapsed ? <VersionMark className="mb-2 text-center" /> : null}
       <button
         type="button"
         onClick={onSignOut}
-        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/45 transition-all duration-200 hover:translate-x-0.5 hover:bg-cyber-red/10 hover:text-cyber-red active:translate-x-1 active:bg-cyber-red/20"
+        disabled={pending}
+        aria-busy={pending || undefined}
+        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/45 transition-all duration-200 hover:translate-x-0.5 hover:bg-cyber-red/10 hover:text-cyber-red active:translate-x-1 active:bg-cyber-red/20 disabled:pointer-events-none disabled:opacity-50"
       >
-        <LogOut className="size-5" />
+        {pending ? <ButtonPending className="size-5" /> : <LogOut className="size-5" />}
         {collapsed ? null : "Sign out"}
       </button>
     </div>

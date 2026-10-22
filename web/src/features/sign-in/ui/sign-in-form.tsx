@@ -74,8 +74,8 @@ export function SignInForm({ onSignIn }: { onSignIn: (user: SessionUser) => void
           {fields.password}
         </span>
       </Label>
-      <Button type="submit" className="w-fit" disabled={pending}>
-        {pending ? "Signing in" : "Sign in"}
+      <Button type="submit" className="w-fit" pending={pending}>
+        Sign in
       </Button>
       <p className="absolute top-full left-0 mt-2 text-sm text-destructive">{error}</p>
     </form>

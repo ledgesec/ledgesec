@@ -11,6 +11,8 @@ def test_the_seed_keeps_the_scan_patterns():
     assert "/_environment" in patterns
     assert "phpinfo" in patterns
     assert "/server-status.php" in patterns
+    assert "/wp-" in patterns
+    assert "/classwithtostring.php" in patterns
     assert all(row["custom"] is False for row in pattern_rows())
     assert rule_id(SUFFIX, "/firebase-key.json") == rule_id(SUFFIX, "/firebase-key.json")
 

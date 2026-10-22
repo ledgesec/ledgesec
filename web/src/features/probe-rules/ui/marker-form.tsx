@@ -29,6 +29,7 @@ export function MarkerForm() {
   const [fieldError, setFieldError] = useState("");
   const [notice, setNotice] = useState("");
   const [pending, setPending] = useState(false);
+  const [removing, setRemoving] = useState("");
 
   useEffect(() => {
     readProbeRules()
@@ -93,7 +94,7 @@ export function MarkerForm() {
           {MARKER_PATTERN}
           <Input name="pattern" maxLength={200} aria-label={MARKER_PATTERN} className="font-mono" />
         </Label>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" pending={pending}>
           {ADD_MARKER}
         </Button>
       </form>
@@ -114,17 +115,22 @@ export function MarkerForm() {
                   {KIND_LABEL[rule.kind as keyof typeof KIND_LABEL] ?? rule.kind} {rule.pattern}
                 </span>
               </span>
-              <button
+              <Button
                 type="button"
-                className="text-sm text-cyber-cyan"
+                variant="ghost"
+                size="sm"
+                className="text-cyber-cyan"
+                pending={removing === rule.id}
                 onClick={() => {
+                  setRemoving(rule.id);
                   deleteProbeRule(rule.id)
                     .then(() => setRules((current) => (current ?? []).filter((item) => item.id !== rule.id)))
-                    .catch(() => setFieldError("The marker was not removed."));
+                    .catch(() => setFieldError("The marker was not removed."))
+                    .finally(() => setRemoving(""));
                 }}
               >
                 {REMOVE_MARKER}
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

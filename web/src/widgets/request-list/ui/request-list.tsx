@@ -4,6 +4,7 @@ import { Badge } from "@/shared/ui/badge";
 import { ColumnEye, useColumnMask } from "@/shared/ui/column-eye";
 import { ColumnCell, ColumnHead, ColumnSettings, ColumnSkeleton, ColumnTable, useColumnLayout } from "@/shared/ui/columns";
 import { CountryMark } from "@/shared/ui/country-mark";
+import { FindText } from "@/shared/ui/find-text";
 import { TableBody, TableHeader, TableRow } from "@/shared/ui/table";
 import {
   COLUMN_ADDRESS,
@@ -23,6 +24,11 @@ import { FIELD_COUNTRY, FIELD_EDGE, FIELD_PATH, FIELD_SITE } from "@/widgets/tab
 
 const SKELETON_ROWS = 6;
 
+function marked(text: string, find: string) {
+  if (find.trim() === "" || text === "") return text;
+  return <FindText text={text} query={find} />;
+}
+
 export function RequestList({
   rows,
   showEdge,
@@ -31,6 +37,7 @@ export function RequestList({
   empty = "No requests have been observed yet.",
   fresh = [],
   pending = false,
+  find = "",
 }: {
   rows: Observation[];
   showEdge: boolean;
@@ -39,6 +46,7 @@ export function RequestList({
   empty?: string;
   fresh?: string[];
   pending?: boolean;
+  find?: string;
 }) {
   const mask = useColumnMask();
   const specs: ColumnDefault[] = [
@@ -128,16 +136,24 @@ export function RequestList({
                           {row.ts.replace(".000Z", "Z")}
                         </ColumnCell>
                       ) : null}
-                      {layout.open("site") ? <ColumnCell width={layout.size("site")}>{covered(row.siteId, mask.isHidden(FIELD_SITE))}</ColumnCell> : null}
-                      {layout.open("edge") ? <ColumnCell width={layout.size("edge")}>{covered(row.edgeId, mask.isHidden(FIELD_EDGE))}</ColumnCell> : null}
+                      {layout.open("site") ? (
+                        <ColumnCell width={layout.size("site")}>
+                          {mask.isHidden(FIELD_SITE) ? covered(row.siteId, true) : marked(row.siteId, find)}
+                        </ColumnCell>
+                      ) : null}
+                      {layout.open("edge") ? (
+                        <ColumnCell width={layout.size("edge")}>
+                          {mask.isHidden(FIELD_EDGE) ? covered(row.edgeId, true) : marked(row.edgeId, find)}
+                        </ColumnCell>
+                      ) : null}
                       {layout.open("country") ? (
-                        <ColumnCell width={layout.size("country")}>{row.country ? <CountryMark code={row.country} /> : "—"}</ColumnCell>
+                        <ColumnCell width={layout.size("country")}>{row.country ? <CountryMark code={row.country} find={find} /> : "—"}</ColumnCell>
                       ) : null}
                       {layout.open("address") ? (
                         <ColumnCell width={layout.size("address")} className="font-mono text-xs">
                           {row.ip ? (
                             <button type="button" className="text-cyber-cyan" onClick={() => onAddress?.(row.ip)}>
-                              {row.ip}
+                              {marked(row.ip, find)}
                             </button>
                           ) : (
                             "—"
@@ -146,7 +162,7 @@ export function RequestList({
                       ) : null}
                       {layout.open("method") ? (
                         <ColumnCell width={layout.size("method")} className="font-mono text-xs">
-                          {row.method || "—"}
+                          {marked(row.method, find) || "—"}
                         </ColumnCell>
                       ) : null}
                       {layout.open("status") ? (
@@ -157,7 +173,7 @@ export function RequestList({
                       {layout.open("ua") ? (
                         <ColumnCell width={layout.size("ua")}>
                           <p className="truncate font-mono text-xs" title={row.ua || undefined}>
-                            {row.ua || "—"}
+                            {marked(row.ua, find) || "—"}
                           </p>
                           {stack ? <p className="truncate text-[10px] text-muted-foreground">{stack}</p> : null}
                         </ColumnCell>
@@ -169,7 +185,9 @@ export function RequestList({
                               {row.marker.label}
                             </Badge>
                           ) : null}
-                          <span className="font-mono text-xs">{covered(row.path, mask.isHidden(FIELD_PATH))}</span>
+                          <span className="font-mono text-xs">
+                            {mask.isHidden(FIELD_PATH) ? covered(row.path, true) : marked(row.path, find)}
+                          </span>
                         </ColumnCell>
                       ) : null}
                       {layout.open("took") ? (
