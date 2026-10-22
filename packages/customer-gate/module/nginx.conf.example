@@ -3,6 +3,7 @@
 # The secret is read from the environment or /etc/ledgesec/agent.env.
 # env directives belong in the main context, or the worker never sees them.
 env LEDGESEC_INGEST_SECRET;
+# LEDGESEC_SITE_ID is the host from the admin cabinet. A site is the request Host.
 env LEDGESEC_SITE_ID;
 env LEDGESEC_EDGE_ID;
 env LEDGESEC_INGEST_URL;

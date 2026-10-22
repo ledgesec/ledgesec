@@ -39,6 +39,7 @@ class ObservationOut(BaseModel):
     decision: str
     reason: str
     ip: str | None = None
+    country: str = ""
     marker: MarkerOut | None = None
 
 
@@ -102,6 +103,47 @@ class SignIn(BaseModel):
     password: str = ""
 
     @field_validator("email", "password", mode="before")
+    @classmethod
+    def as_text(cls, value: object) -> str:
+        if value is None:
+            return ""
+        return str(value)
+
+
+class HostSiteOut(BaseModel):
+    name: str
+    enabled: bool
+
+
+class HostOut(BaseModel):
+    id: str
+    label: str
+    collector: str
+    sites: list[HostSiteOut]
+
+
+class HostsOut(BaseModel):
+    hosts: list[HostOut]
+
+
+class NewHost(BaseModel):
+    label: str = ""
+    collector: str = ""
+
+    @field_validator("label", "collector", mode="before")
+    @classmethod
+    def as_text(cls, value: object) -> str:
+        if value is None:
+            return ""
+        return str(value)
+
+
+class SiteMonitor(BaseModel):
+    host_id: str = ""
+    name: str = ""
+    enabled: bool
+
+    @field_validator("host_id", "name", mode="before")
     @classmethod
     def as_text(cls, value: object) -> str:
         if value is None:

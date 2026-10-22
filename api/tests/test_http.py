@@ -3,7 +3,6 @@ import hmac
 import json
 from datetime import UTC, datetime
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.access.models import User
@@ -242,9 +241,14 @@ def test_site_user_cannot_list_addresses(monkeypatch):
 def test_ingest_accepts_a_signed_batch(monkeypatch):
     monkeypatch.setenv("LEDGESEC_INGEST_SECRET", "secret")
     monkeypatch.setattr("app.http.observation.insert_observations", lambda lines: len(lines))
+    monkeypatch.setattr("app.http.observation.filter_monitored", lambda _db, lines: lines)
     now_ms = int(datetime.now(UTC).timestamp() * 1000)
     body = json.dumps(
-        {"site_id": "demo", "edge_id": "eu", "events": [{"ts": now_ms, "path": "/pricing", "ip": "203.0.113.10"}]}
+        {
+            "site_id": "demo",
+            "edge_id": "eu",
+            "events": [{"ts": now_ms, "path": "/pricing", "host": "shop.example", "ip": "203.0.113.10"}],
+        }
     ).encode()
     mac = hmac.new(b"secret", body, hashlib.sha256).hexdigest()
     response = TestClient(create_app(prepare=False)).post(
@@ -252,9 +256,8 @@ def test_ingest_accepts_a_signed_batch(monkeypatch):
         content=body,
         headers={"x-ledgesec-mac": mac, "content-length": str(len(body))},
     )
-    assert response.status_code in (202, 400)
-    if response.status_code == 400:
-        pytest.fail(response.text)
+    assert response.status_code == 202
+    assert response.json()["stored"] == 1
 
 
 def test_ingest_rejects_a_bad_signature(monkeypatch):
@@ -302,3 +305,44 @@ def test_admin_can_refuse_a_short_site_user(monkeypatch):
     )
     assert response.status_code == 400
     assert response.json() == {"error": "bad_user"}
+
+
+def test_admin_adds_an_nginx_host(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_SESSION_SECRET", SECRET)
+    monkeypatch.setattr(
+        "app.http.access.create_host",
+        lambda _db, label, collector: {"id": "abcd1234", "label": label.strip(), "collector": collector, "sites": []},
+    )
+    holder = Holder()
+    holder.user = admin()
+    client = client_for(holder)
+    client.cookies.set("ledgesec_session", sign_session(USER_ID))
+    response = client.post("/v1/hosts", json={"label": " Shop ", "collector": "nginx"})
+    assert response.status_code == 201
+    assert response.json()["id"] == "abcd1234"
+    assert response.json()["collector"] == "nginx"
+    assert response.json()["sites"] == []
+
+
+def test_a_site_user_cannot_add_a_host(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_SESSION_SECRET", SECRET)
+    holder = Holder()
+    holder.user = admin()
+    holder.user.role = "user"
+    holder.user.site_id = "demo"
+    client = client_for(holder)
+    client.cookies.set("ledgesec_session", sign_session(USER_ID))
+    response = client.post("/v1/hosts", json={"label": "Shop", "collector": "nginx"})
+    assert response.status_code == 401
+    assert response.json() == {"error": "sign_in"}
+
+
+def test_apache_is_not_available_yet(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_SESSION_SECRET", SECRET)
+    holder = Holder()
+    holder.user = admin()
+    client = client_for(holder)
+    client.cookies.set("ledgesec_session", sign_session(USER_ID))
+    response = client.post("/v1/hosts", json={"label": "Shop", "collector": "apache"})
+    assert response.status_code == 400
+    assert response.json() == {"error": "unavailable"}

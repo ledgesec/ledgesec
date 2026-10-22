@@ -1,5 +1,9 @@
 from app.ids import SITE_ID
-from app.observation.clickhouse import clickhouse_call, clickhouse_rows
+from app.observation.clickhouse import (
+    clickhouse_call,
+    clickhouse_rows,
+    ensure_event_columns,
+)
 from app.observation.markers import marker_body
 from app.observation.summary import CountRow, summarize
 
@@ -37,6 +41,7 @@ def count_query(site_id: str | None) -> tuple[str, dict[str, str]]:
 
 
 def fetch_summary(site_id: str | None = None) -> dict:
+    ensure_event_columns()
     sql, params = count_query(site_id)
     rows = [
         CountRow(
@@ -52,6 +57,7 @@ def fetch_summary(site_id: str | None = None) -> dict:
 
 
 def fetch_events(limit: int, site_id: str | None = None) -> list[dict]:
+    ensure_event_columns()
     limit = int(limit)
     if limit < 1 or limit > 1000:
         raise ValueError("bad_limit")
@@ -59,7 +65,7 @@ def fetch_events(limit: int, site_id: str | None = None) -> list[dict]:
     where = f"WHERE {predicate} " if predicate else ""
     sql = (
         "SELECT formatDateTime(ts, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS ts, "
-        "site_id, edge_id, route_group, path, decision, reason, toString(ip) AS ip "
+        "site_id, edge_id, route_group, path, decision, reason, toString(ip) AS ip, country "
         "FROM ledgesec.events "
         f"{where}ORDER BY ts DESC LIMIT {limit} FORMAT JSONEachRow"
     )
@@ -74,5 +80,6 @@ def fetch_events(limit: int, site_id: str | None = None) -> list[dict]:
 def insert_observations(lines: list[str]) -> int:
     if not lines:
         return 0
+    ensure_event_columns()
     clickhouse_call("INSERT INTO ledgesec.events FORMAT JSONEachRow", payload="\n".join(lines) + "\n")
     return len(lines)

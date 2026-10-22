@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.access.actor import Actor
+from app.access.hosts import filter_monitored
 from app.errors import ApiError
 from app.http.body import read_body
-from app.http.deps import ActorDep, AdminDep
+from app.http.deps import ActorDep, AdminDep, Db
 from app.http.schemas import AddressesOut, ObservationOut, StoredOut, SummaryOut
 from app.ids import SITE_ID
 from app.observation.addresses import address_panel
@@ -73,14 +75,20 @@ def addresses(_actor: AdminDep) -> JSONResponse:
 
 
 @router.post("/v1/observations")
-async def ingest(request: Request) -> JSONResponse:
+async def ingest(request: Request, db: Db) -> JSONResponse:
     body = await read_body(request, limit=INGEST_BODY_LIMIT)
     mac = (request.headers.get("x-ledgesec-mac") or "").strip().lower()
     try:
         lines = accept_batch(mac, body)
+        lines = filter_monitored(db, lines)
         stored = insert_observations(lines)
     except PermissionError as exc:
         raise ApiError(401, str(exc)) from exc
+    except ValueError as exc:
+        code = str(exc)
+        raise ApiError(400, code if code == "unknown_host" else "rejected") from exc
+    except SQLAlchemyError as exc:
+        raise ApiError(503, "postgres_down") from exc
     except Exception as exc:
         raise ApiError(400, "rejected") from exc
     return JSONResponse(StoredOut(stored=stored).model_dump(), status_code=202)

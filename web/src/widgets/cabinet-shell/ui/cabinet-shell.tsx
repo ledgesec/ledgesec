@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Radio, ScrollText, ShieldAlert } from "lucide-react";
+import { ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Radio, ScrollText, Server, ShieldAlert } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 
-export type CabinetSection = "overview" | "requests" | "addresses";
+export type CabinetSection = "overview" | "requests" | "addresses" | "hosts";
 
-const items: { id: CabinetSection; label: string; icon: typeof LayoutDashboard }[] = [
+const items: { id: CabinetSection; label: string; icon: typeof LayoutDashboard; admin?: boolean }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
+  { id: "hosts", label: "Hosts", icon: Server, admin: true },
   { id: "requests", label: "Requests", icon: ScrollText },
-  { id: "addresses", label: "Addresses", icon: Radio },
+  { id: "addresses", label: "Addresses", icon: Radio, admin: true },
 ];
 
 export function CabinetShell({
@@ -28,7 +29,7 @@ export function CabinetShell({
   children: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
-  const nav = items.filter((item) => mode === "admin" || item.id !== "addresses");
+  const nav = items.filter((item) => mode === "admin" || !item.admin);
   const width = collapsed ? "lg:w-20" : "lg:w-[280px]";
   const pad = collapsed ? "lg:pl-20" : "lg:pl-[280px]";
 

@@ -58,6 +58,7 @@ services:
       CLICKHOUSE_DB: ledgesec
       LEDGESEC_INGEST_SECRET: ${LEDGESEC_INGEST_SECRET:-}
       LEDGESEC_SESSION_SECRET: ${LEDGESEC_SESSION_SECRET:-}
+      LEDGESEC_GEOIP_DB: ${LEDGESEC_GEOIP_DB:-}
     depends_on:
       postgres:
         condition: service_healthy

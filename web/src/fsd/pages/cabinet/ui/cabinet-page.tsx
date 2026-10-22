@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { AddressRow, Observation, Summary } from "@/entities/observation/model";
+import { HostsPanel } from "@/features/hosts/ui/hosts-panel";
 import { readAddresses, readObservations, readSummary } from "@/features/journal/api";
 import { readSession, signOut, type SessionUser } from "@/features/sign-in/api";
 import { SignInForm } from "@/features/sign-in/ui/sign-in-form";
@@ -116,12 +117,15 @@ export function CabinetPage({ host, mode }: { host: string; mode: "client" | "ad
 
   return (
     <CabinetShell mode={mode} email={user.email} section={section} onSection={setSection} onSignOut={leave}>
-      <h1 className="text-3xl font-bold">{section === "addresses" ? "Addresses" : section === "requests" ? "Requests" : "Overview"}</h1>
+      <h1 className="text-3xl font-bold">{titleOf(section)}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Observation records the request and lets it through. The last 24 hours.
+        {section === "hosts"
+          ? "Add a host once. Sites on it appear from the requests, and you can turn one off."
+          : "Observation records the request and lets it through. The last 24 hours."}
       </p>
-      {journalError ? <p className="mt-8 text-cyber-red">The journal did not answer.</p> : null}
-      {!journal && !journalError ? <p className="mt-8 text-muted-foreground">Reading the journal.</p> : null}
+      {section === "hosts" && mode === "admin" ? <HostsPanel /> : null}
+      {journalError && section !== "hosts" ? <p className="mt-8 text-cyber-red">The journal did not answer.</p> : null}
+      {!journal && !journalError && section !== "hosts" ? <p className="mt-8 text-muted-foreground">Reading the journal.</p> : null}
       {journal && section === "overview" ? <Overview summary={journal.summary} mode={mode} /> : null}
       {journal && section === "requests" ? (
         <div className="glass-panel mt-6 p-4">
@@ -135,6 +139,13 @@ export function CabinetPage({ host, mode }: { host: string; mode: "client" | "ad
       ) : null}
     </CabinetShell>
   );
+}
+
+function titleOf(section: CabinetSection) {
+  if (section === "addresses") return "Addresses";
+  if (section === "requests") return "Requests";
+  if (section === "hosts") return "Hosts";
+  return "Overview";
 }
 
 function Overview({ summary, mode }: { summary: Summary; mode: "client" | "admin" }) {

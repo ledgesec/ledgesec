@@ -5,7 +5,8 @@ import os
 import re
 from datetime import UTC, datetime, timedelta
 
-from app.ids import SITE_ID
+from app.ids import SITE_ID, site_name
+from app.observation.geo import country_of
 
 IPV4 = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 IPV6 = re.compile(r"^[0-9A-Fa-f:.]{2,64}$")
@@ -56,13 +57,17 @@ def event_lines(body: bytes) -> list[str]:
         route_group = event.get("route_group")
         if route_group not in ("document", "asset", "api"):
             route_group = "document"
+        name = site_name(str(event.get("host") or ""))
+        if name == "":
+            continue
         stamp = when.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
         sampled = 1 if event.get("sampled") is True else 0
         lines.append(
             json.dumps(
                 {
                     "ts": stamp,
-                    "site_id": site_id,
+                    "site_id": name,
+                    "host_id": site_id,
                     "edge_id": edge_id,
                     "decision": "allow",
                     "reason": "observe",
@@ -72,6 +77,7 @@ def event_lines(body: bytes) -> list[str]:
                     "route_group": route_group,
                     "path": path,
                     "ip": to_ipv6(str(event.get("ip") or "")),
+                    "country": country_of(str(event.get("ip") or "")),
                     "had_session": 0,
                     "client_class": "",
                     "ja4": "",

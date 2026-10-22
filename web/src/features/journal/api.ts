@@ -6,6 +6,7 @@ type ApiObservation = {
   edge_id: string;
   path: string;
   ip?: string;
+  country?: string;
   marker: { code: string; label: string } | null;
 };
 
@@ -28,6 +29,7 @@ export async function readObservations(): Promise<Observation[]> {
     edgeId: row.edge_id,
     path: row.path,
     ip: row.ip ?? "",
+    country: row.country ?? "",
     marker: row.marker,
   }));
 }

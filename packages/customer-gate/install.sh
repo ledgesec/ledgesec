@@ -28,6 +28,7 @@ Usage: install.sh [--site-id ID] [--edge-id ID] [--ingest-base URL]
 --token-file is the way to pass LEDGESEC_INGEST_SECRET. --token works, but
 the value is visible in the process list. Default ingest base is
 https://dash.ledgesec.com. The module posts to /api/v1/observations.
+--site-id is the host id from the admin cabinet. Sites come from the Host header.
 EOF
 }
 

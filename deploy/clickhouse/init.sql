@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS ledgesec.events (
     ts DateTime64(3, 'UTC'),
     site_id LowCardinality(String),
+    host_id LowCardinality(String),
     edge_id LowCardinality(String),
     decision LowCardinality(String),
     reason LowCardinality(String),
@@ -10,6 +11,7 @@ CREATE TABLE IF NOT EXISTS ledgesec.events (
     route_group LowCardinality(String),
     path String,
     ip IPv6,
+    country LowCardinality(String),
     had_session UInt8,
     client_class LowCardinality(String),
     ja4 String,

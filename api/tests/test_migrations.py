@@ -8,8 +8,8 @@ from app.db import BASELINE, alembic_config, database_url, should_stamp_baseline
 from app.orm import Base
 
 
-def test_metadata_is_the_three_postgres_tables():
-    assert set(Base.metadata.tables) == {"sites", "users", "cert_state"}
+def test_metadata_is_the_postgres_tables():
+    assert set(Base.metadata.tables) == {"sites", "users", "cert_state", "hosts", "host_sites"}
     users = Base.metadata.tables["users"]
     assert users.c.email.unique
     assert users.c.site_id.nullable
@@ -34,9 +34,10 @@ def test_stamp_only_an_existing_schema_without_a_version():
     assert not should_stamp_baseline({"users"})
 
 
-def test_head_revision_is_the_baseline():
+def test_head_revision_follows_the_baseline():
     script = ScriptDirectory.from_config(alembic_config())
-    assert script.get_current_head() == BASELINE
+    assert BASELINE == "0001"
+    assert script.get_current_head() == "0002"
 
 
 def test_offline_upgrade_creates_the_tables(capsys):
@@ -45,4 +46,6 @@ def test_offline_upgrade_creates_the_tables(capsys):
     assert "CREATE TABLE sites" in sql
     assert "CREATE TABLE users" in sql
     assert "CREATE TABLE cert_state" in sql
+    assert "CREATE TABLE hosts" in sql
+    assert "CREATE TABLE host_sites" in sql
     assert "alembic_version" in sql
