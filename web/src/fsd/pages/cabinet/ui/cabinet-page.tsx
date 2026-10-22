@@ -54,6 +54,7 @@ import { AddressPanel } from "@/widgets/address-panel/ui/address-panel";
 import { CabinetShell } from "@/widgets/cabinet-shell/ui/cabinet-shell";
 import { HourChart } from "@/widgets/hour-chart/ui/hour-chart";
 import { RequestList } from "@/widgets/request-list/ui/request-list";
+import { countryFlashes } from "@/widgets/world-map/flashes";
 import { DomainRates, WorldMap } from "@/widgets/world-map/ui/world-map";
 
 type Journal = {
@@ -622,6 +623,10 @@ function Overview({
 }) {
   const [fields, setFields] = useState<JournalFields>(BLANK_FIELDS);
   const latest = latestRequests(observations);
+  const flashes = countryFlashes(
+    latest.map((row) => ({ key: observationKey(row), country: row.country, marked: row.marker !== null })),
+    freshRequests,
+  );
   const admin = mode === ADMIN;
   const rows = latest.filter((row) =>
     keepRow(
@@ -659,10 +664,12 @@ function Overview({
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(16rem,0.8fr)]">
           <section className="glass-panel p-4" aria-busy={summary ? undefined : true}>
             <h2 className="text-sm font-medium">Countries</h2>
-            <p className="mt-1 text-xs text-muted-foreground">Last 24 hours. A brighter mark has more requests.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Last 24 hours. A brighter mark has more requests. A new one pulses green. A probe pulses red.
+            </p>
             <div className="mt-4 overflow-hidden rounded-lg border border-cyber-cyan/15">
               {summary ? (
-                <WorldMap countries={summary.countries ?? []} />
+                <WorldMap countries={summary.countries ?? []} flashes={flashes} />
               ) : (
                 <Skeleton className="aspect-[2/1] w-full rounded-none" />
               )}

@@ -1,4 +1,5 @@
 import { Skeleton } from "@/shared/ui/skeleton";
+import { FLASH_PROBE, type CountryFlash } from "@/widgets/world-map/flashes";
 import { LAND } from "@/widgets/world-map/land";
 import { formatRps } from "@/widgets/world-map/places";
 
@@ -7,7 +8,13 @@ const SKELETON_DOMAINS = 3;
 const WIDTH = 1000;
 const HEIGHT = 500;
 
-export function WorldMap({ countries }: { countries: { code: string; requests: number }[] }) {
+export function WorldMap({
+  countries,
+  flashes = new Map(),
+}: {
+  countries: { code: string; requests: number }[];
+  flashes?: Map<string, CountryFlash>;
+}) {
   const counts = new Map(countries.map((country) => [country.code, country.requests]));
   const max = Math.max(1, ...counts.values());
   const lines = [30, 60, 90, 120, 150];
@@ -31,19 +38,31 @@ export function WorldMap({ countries }: { countries: { code: string; requests: n
       ))}
       {LAND.map((place) => {
         const requests = place.code === "" ? 0 : (counts.get(place.code) ?? 0);
+        const flash = place.code === "" ? undefined : flashes.get(place.code);
         return (
-          <path
-            key={place.name}
-            d={place.d}
-            fill="#00f0ff"
-            fillOpacity={requests === 0 ? 0.16 : 0.4 + 0.6 * (requests / max)}
-            stroke="#9cfbff"
-            strokeOpacity={requests === 0 ? 0.28 : 0.95}
-            strokeWidth={0.6}
-            filter={requests === 0 ? undefined : "url(#country-glow)"}
-          >
-            <title>{`${place.name} ${requests}`}</title>
-          </path>
+          <g key={place.name}>
+            <path
+              d={place.d}
+              fill="#00f0ff"
+              fillOpacity={requests === 0 ? 0.16 : 0.4 + 0.6 * (requests / max)}
+              stroke="#9cfbff"
+              strokeOpacity={requests === 0 ? 0.28 : 0.95}
+              strokeWidth={0.6}
+              filter={requests === 0 ? undefined : "url(#country-glow)"}
+            >
+              <title>{`${place.name} ${requests}`}</title>
+            </path>
+            {flash ? (
+              <path
+                key={flash.stamp}
+                d={place.d}
+                fill="currentColor"
+                fillOpacity={0}
+                pointerEvents="none"
+                className={flash.tone === FLASH_PROBE ? "animate-country-flash text-cyber-red" : "animate-country-flash text-cyber-green"}
+              />
+            ) : null}
+          </g>
         );
       })}
     </svg>
