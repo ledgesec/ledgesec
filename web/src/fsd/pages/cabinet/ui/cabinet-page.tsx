@@ -498,6 +498,17 @@ function Overview({
             <div className="mt-4 overflow-hidden rounded-lg border border-cyber-cyan/15">
               <WorldMap countries={summary.countries ?? []} />
             </div>
+            {(summary.countries ?? []).length === 0 ? (
+              <p className="mt-3 text-xs text-muted-foreground">No country code in the last 24 hours.</p>
+            ) : (
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {(summary.countries ?? []).map((country) => (
+                  <li key={country.code} className="font-mono text-xs text-cyber-cyan">
+                    {country.code} {country.requests}
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
           <section className="glass-panel p-4">
             <DomainRates rps={summary.rps ?? 0} domains={summary.domains ?? []} />

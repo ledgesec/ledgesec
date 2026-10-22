@@ -103,6 +103,24 @@ def country_rows(host_ids: list[str] | None) -> list[dict]:
     return clickhouse_rows(sql, params)
 
 
+def open_country_query(host_ids: list[str] | None) -> tuple[str, dict[str, str]]:
+    predicate, params = host_predicate(host_ids)
+    where = "ts >= now() - INTERVAL 24 HOUR AND country = ''"
+    if predicate:
+        where = f"{where} AND {predicate}"
+    sql = (
+        "SELECT toString(ip) AS ip, count() AS count FROM ledgesec.events "
+        f"WHERE {where} GROUP BY ip FORMAT JSONEachRow"
+    )
+    return sql, params
+
+
+def open_country_rows(host_ids: list[str] | None) -> list[dict]:
+    prepare_journal()
+    sql, params = open_country_query(host_ids)
+    return clickhouse_rows(sql, params)
+
+
 def event_rows(limit: int, host_ids: list[str] | None) -> list[dict]:
     prepare_journal()
     sql, params = event_page_query(host_ids, None, "next", limit, None)

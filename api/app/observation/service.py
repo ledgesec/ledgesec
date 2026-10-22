@@ -1,5 +1,6 @@
 from app.codes import Code
 from app.observation.addresses import address_panel
+from app.observation.geo import noted_country, tally_countries
 from app.observation.markers import marker_body
 from app.observation.page import (
     PAGE,
@@ -16,6 +17,7 @@ from app.observation.repository import (
     event_page_rows,
     event_rows,
     insert_events,
+    open_country_rows,
     rate_rows,
     summary_rows,
 )
@@ -44,7 +46,8 @@ def fetch_summary(host_ids: list[str] | None = None) -> dict:
         )
         for row in summary_rows(host_ids)
     ]
-    return with_rates(summarize(rows), rate_rows(host_ids), country_rows(host_ids))
+    places = tally_countries(country_rows(host_ids), open_country_rows(host_ids))
+    return with_rates(summarize(rows), rate_rows(host_ids), places)
 
 
 def fetch_events(limit: int, host_ids: list[str] | None = None) -> list[dict]:
@@ -110,9 +113,7 @@ def fetch_address_page(cursor: str | None, direction: str) -> tuple[list[dict], 
         }
         item["requests"] = int(key.get("count") or 0)
         item["last_ts"] = str(key.get("last_ts") or item.get("last_ts") or "")
-        country = str(key.get("country") or "")
-        if len(country) == 2 and country.isalpha():
-            item["country"] = country.upper()
+        item["country"] = noted_country(str(key.get("country") or ""), ip)
         rows.append(item)
     first = encode_address_cursor(int(keys[0].get("count") or 0), str(keys[0].get("ip") or "")) if keys else None
     last = encode_address_cursor(int(keys[-1].get("count") or 0), str(keys[-1].get("ip") or "")) if keys else None
@@ -132,6 +133,7 @@ def _mark(rows: list[dict]) -> list[dict]:
     marked = []
     for row in rows:
         row["marker"] = marker_body(row.get("path"))
+        row["country"] = noted_country(str(row.get("country") or ""), str(row.get("ip") or ""))
         row["ip"] = show_ip(row.get("ip"))
         marked.append(row)
     return marked

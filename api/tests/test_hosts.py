@@ -13,7 +13,7 @@ from app.access.service import (
     split_monitored,
 )
 from app.ids import SITE_ID, site_name
-from app.observation.geo import country_of
+from app.observation.geo import country_of, geoip_path, noted_country, tally_countries
 
 
 class Mem:
@@ -209,3 +209,26 @@ def test_country_is_an_iso_code_or_empty(monkeypatch):
     assert country_of("203.0.113.10") == ""
     monkeypatch.setattr("app.observation.geo.lookup_country", lambda _ip: None)
     assert country_of("203.0.113.10") == ""
+
+
+def test_an_empty_country_is_read_from_the_local_file(monkeypatch):
+    monkeypatch.setattr("app.observation.geo.country_of", lambda ip: "DE" if ip == "203.0.113.10" else "")
+    assert noted_country("us", "203.0.113.10") == "US"
+    assert noted_country("", "203.0.113.10") == "DE"
+    assert tally_countries(
+        [{"country": "US", "count": 2}],
+        [{"ip": "203.0.113.10", "count": 3}, {"ip": "192.0.2.1", "count": 1}],
+    ) == [{"country": "DE", "count": 3}, {"country": "US", "count": 2}]
+
+
+def test_geoip_path_uses_the_env_file_or_the_default(monkeypatch):
+    from app.observation.geo import DEFAULT_GEOIP_DB
+
+    monkeypatch.delenv("LEDGESEC_GEOIP_DB", raising=False)
+    monkeypatch.setattr("app.observation.geo.os.path.isfile", lambda _path: False)
+    assert geoip_path() == ""
+    monkeypatch.setenv("LEDGESEC_GEOIP_DB", "/tmp/custom.mmdb")
+    assert geoip_path() == "/tmp/custom.mmdb"
+    monkeypatch.delenv("LEDGESEC_GEOIP_DB", raising=False)
+    monkeypatch.setattr("app.observation.geo.os.path.isfile", lambda path: path == DEFAULT_GEOIP_DB)
+    assert geoip_path() == DEFAULT_GEOIP_DB

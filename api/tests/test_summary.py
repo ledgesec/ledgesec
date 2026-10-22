@@ -9,6 +9,7 @@ from app.observation.repository import (
     country_query,
     events_ttl,
     minute_ttl,
+    open_country_query,
     rate_query,
 )
 from app.observation.summary import CountRow, summarize, with_rates
@@ -119,6 +120,10 @@ def test_rates_are_requests_in_the_last_minute_by_domain():
     assert "host_id IN ('f274178d')" in rate_sql
     assert "phpmyadmin" not in rate_sql
     assert "country != ''" in country_sql
+    open_sql, _open_params = open_country_query(["f274178d"])
+    assert "country = ''" in open_sql
+    assert "toString(ip)" in open_sql
+    assert "host_id IN ('f274178d')" in open_sql
 
 
 def test_a_clickhouse_query_is_posted(monkeypatch):

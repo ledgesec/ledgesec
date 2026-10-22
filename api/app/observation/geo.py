@@ -1,23 +1,61 @@
 import os
 
-# Country is an ISO code from a local GeoLite2-Country file.
+# Country is an ISO code from a local MaxMind-format file.
 # The visitor request never calls out, and a missing file leaves the code empty.
+# DB-IP Country Lite, when that is the file, is used under CC BY 4.0: https://db-ip.com
+
+DEFAULT_GEOIP_DB = "/data/geoip/country.mmdb"
 
 _readers: dict[str, object] = {}
 
 
+def geoip_path() -> str:
+    chosen = os.environ.get("LEDGESEC_GEOIP_DB", "").strip()
+    if chosen != "":
+        return chosen
+    if os.path.isfile(DEFAULT_GEOIP_DB):
+        return DEFAULT_GEOIP_DB
+    return ""
+
+
 def country_of(ip: str) -> str:
-    code = lookup_country(ip)
-    if code is None:
+    return _iso(lookup_country(ip))
+
+
+def noted_country(stored: str, ip: str) -> str:
+    code = _iso(stored)
+    if code != "":
+        return code
+    return country_of(ip)
+
+
+def tally_countries(stored: list[dict], pending: list[dict]) -> list[dict]:
+    totals: dict[str, int] = {}
+    for row in stored:
+        _add(totals, noted_country(str(row.get("country") or ""), ""), int(row.get("count") or 0))
+    for row in pending:
+        _add(totals, country_of(str(row.get("ip") or "")), int(row.get("count") or 0))
+    ranked = sorted(totals.items(), key=lambda item: (-item[1], item[0]))
+    return [{"country": code, "count": count} for code, count in ranked]
+
+
+def _add(totals: dict[str, int], code: str, count: int) -> None:
+    if count <= 0 or code == "":
+        return
+    totals[code] = totals.get(code, 0) + count
+
+
+def _iso(value: object) -> str:
+    if value is None:
         return ""
-    text = str(code).strip().upper()
+    text = str(value).strip().upper()
     if len(text) != 2 or not text.isalpha():
         return ""
     return text
 
 
 def lookup_country(ip: str) -> str | None:
-    reader = reader_for(os.environ.get("LEDGESEC_GEOIP_DB", ""))
+    reader = reader_for(geoip_path())
     if reader is None:
         return None
     text = str(ip or "")
