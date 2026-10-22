@@ -2,10 +2,12 @@
 
 import type { Summary } from "@/entities/observation/model";
 import { siteLines } from "@/fsd/pages/cabinet/site-lines";
+import { covered } from "@/shared/lib/mask";
 import { Badge } from "@/shared/ui/badge";
+import { ColumnEye, useColumnMask } from "@/shared/ui/column-eye";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
-import { FIELD_LABEL, FIELD_SITE, LABEL, NO_MATCH, QUERY, SITE, SLOW, choiceList, keepRow } from "@/widgets/table-tools/query";
+import { FIELD_LABEL, FIELD_PATH, FIELD_SITE, LABEL, NO_MATCH, QUERY, SITE, SLOW, choiceList, keepRow } from "@/widgets/table-tools/query";
 import { TableTools, useField } from "@/widgets/table-tools/ui/table-tools";
 import { formatRps } from "@/widgets/world-map/places";
 
@@ -32,6 +34,7 @@ export function SiteBoard({
   showEdges: boolean;
   onPath: (path: string) => void;
 }) {
+  const mask = useColumnMask();
   const lines = summary ? siteLines(summary.by_site ?? [], summary.domains ?? []) : null;
   const [siteQuery, setSiteQuery] = useField(QUERY);
   const [sitePick, setSitePick] = useField(SITE, 0);
@@ -85,7 +88,12 @@ export function SiteBoard({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Site</TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    {FIELD_SITE}
+                    <ColumnEye column={FIELD_SITE} hidden={mask.isHidden(FIELD_SITE)} onToggle={() => mask.toggle(FIELD_SITE)} />
+                  </span>
+                </TableHead>
                 <TableHead>Requests</TableHead>
                 <TableHead>Probes</TableHead>
                 <TableHead>RPS</TableHead>
@@ -94,7 +102,7 @@ export function SiteBoard({
             <TableBody>
               {sites.map((line) => (
                 <TableRow key={line.name}>
-                  <TableCell className="font-mono text-xs">{line.name}</TableCell>
+                  <TableCell className="font-mono text-xs">{covered(line.name, mask.isHidden(FIELD_SITE))}</TableCell>
                   <TableCell className="font-mono text-cyber-cyan">{line.requests}</TableCell>
                   <TableCell className="font-mono">{line.probes}</TableCell>
                   <TableCell className="font-mono text-cyber-cyan">{formatRps(line.rps)}</TableCell>
@@ -180,7 +188,12 @@ export function SiteBoard({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Path</TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    {FIELD_PATH}
+                    <ColumnEye column={FIELD_PATH} hidden={mask.isHidden(FIELD_PATH)} onToggle={() => mask.toggle(FIELD_PATH)} />
+                  </span>
+                </TableHead>
                 <TableHead>Requests</TableHead>
                 <TableHead>Average</TableHead>
                 <TableHead>Max</TableHead>
@@ -192,7 +205,7 @@ export function SiteBoard({
                   <TableCell>
                     <button type="button" className="inline-flex items-center gap-2 text-left" onClick={() => onPath(row.path)}>
                       {row.label ? <Badge variant="destructive">{row.label}</Badge> : null}
-                      <span className="font-mono text-xs text-cyber-cyan">{row.path}</span>
+                      <span className="font-mono text-xs text-cyber-cyan">{covered(row.path, mask.isHidden(FIELD_PATH))}</span>
                     </button>
                   </TableCell>
                   <TableCell className="font-mono">{row.requests}</TableCell>
