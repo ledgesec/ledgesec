@@ -58,8 +58,8 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { TablePager } from "@/shared/ui/table-pager";
 import { AddressPanel } from "@/widgets/address-panel/ui/address-panel";
 import { CabinetShell } from "@/widgets/cabinet-shell/ui/cabinet-shell";
-import { HourChart } from "@/widgets/hour-chart/ui/hour-chart";
 import { RequestList } from "@/widgets/request-list/ui/request-list";
+import { RateChart } from "@/widgets/rate-chart/ui/rate-chart";
 import { countryFlashes } from "@/widgets/world-map/flashes";
 import { DomainRates, WorldMap } from "@/widgets/world-map/ui/world-map";
 
@@ -453,6 +453,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
           probesHref={sectionHref(host, mode, PROBES)}
           observations={journal?.observations ?? []}
           freshRequests={freshRequests}
+          refreshSeconds={refreshSeconds}
         />
       ) : null}
       {(journal || !journalError) && section === PROBES ? <ProbeBoard summary={journal?.summary ?? null} onPath={openPath} admin={mode === ADMIN} /> : null}
@@ -640,6 +641,7 @@ function Overview({
   freshRequests,
   onPath,
   probesHref,
+  refreshSeconds,
 }: {
   summary: Summary | null;
   mode: CabinetMode;
@@ -648,6 +650,7 @@ function Overview({
   probesHref: string;
   observations: Observation[];
   freshRequests: string[];
+  refreshSeconds: number;
 }) {
   const [query, setQuery, appliedQuery, queryHeld] = useField(QUERY);
   const [site, setSite] = useField(SITE, 0);
@@ -780,12 +783,7 @@ function Overview({
           </HoldRegion>
         </div>
       </section>
-      <section className="glass-panel p-4" aria-busy={summary ? undefined : true}>
-        <h2 className="text-sm font-medium">Requests by hour</h2>
-        <div className="mt-4">
-          <HourChart hours={summary?.hours ?? []} pending={!summary} />
-        </div>
-      </section>
+      <RateChart refreshSeconds={refreshSeconds} />
       <section className="glass-panel p-4">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-sm font-medium">Probes</h2>

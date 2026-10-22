@@ -13,12 +13,22 @@ from app.codes import Code
 from app.errors import ApiError
 from app.http.body import read_body
 from app.http.deps import ActorDep, AdminDep, Db
-from app.http.schemas import AddressesOut, ObservationOut, ProbeRuleIn, ProbeRulesOut, StoredOut, SummaryOut
+from app.http.schemas import (
+    AddressesOut,
+    ObservationOut,
+    ProbeRuleIn,
+    ProbeRulesOut,
+    RatesOut,
+    StoredOut,
+    SummaryOut,
+)
 from app.observation.ingest import INGEST_BODY_LIMIT, accept_batch, batch_note
+from app.observation.rates import DEFAULT_RATE_WINDOW, rates_body, window_of
 from app.observation.rules import add_rule, applied_rules, list_custom, remove_rule
 from app.observation.service import (
     fetch_address_page,
     fetch_event_page,
+    fetch_rates,
     fetch_summary,
     insert_observations,
 )
@@ -92,6 +102,27 @@ def summary(actor: ActorDep, db: Db) -> JSONResponse:
             body = SummaryOut.model_validate(fetch_summary(host_ids)).model_dump()
     except SQLAlchemyError as exc:
         raise ApiError(503, Code.POSTGRES_DOWN) from exc
+    except Exception as exc:
+        raise ApiError(503, Code.CLICKHOUSE_DOWN) from exc
+    return JSONResponse(body)
+
+
+@router.get("/v1/rates")
+def rates(actor: ActorDep, db: Db, window: str = "") -> JSONResponse:
+    try:
+        name, span, step = window_of(window or DEFAULT_RATE_WINDOW)
+    except ValueError as exc:
+        raise ApiError(400, str(exc)) from exc
+    try:
+        host_ids = journal_host_ids(db, actor)
+    except Unscoped:
+        return JSONResponse(RatesOut.model_validate(rates_body({}, name, span, step)).model_dump())
+    try:
+        body = RatesOut.model_validate(fetch_rates(host_ids, name)).model_dump()
+    except SQLAlchemyError as exc:
+        raise ApiError(503, Code.POSTGRES_DOWN) from exc
+    except ValueError as exc:
+        raise ApiError(400, str(exc)) from exc
     except Exception as exc:
         raise ApiError(503, Code.CLICKHOUSE_DOWN) from exc
     return JSONResponse(body)

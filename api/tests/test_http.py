@@ -245,6 +245,31 @@ def test_admin_summary_and_addresses(monkeypatch):
     assert addresses.json()["prev"] is None
 
 
+def test_rates_follow_the_chosen_window(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_SESSION_SECRET", SECRET)
+    holder = Holder()
+    holder.user = admin()
+    seen = {}
+
+    def fake(host_ids=None, window="1h"):
+        seen["hosts"] = host_ids
+        seen["window"] = window
+        return {"window": window, "step": 60, "points": [{"at": "2026-10-22 18:07:00", "requests": 60, "rps": 1.0}]}
+
+    monkeypatch.setattr("app.http.observation.fetch_rates", fake)
+    client = client_for(holder)
+    client.cookies.set("ledgesec_session", sign_session(USER_ID))
+    response = client.get("/v1/rates?window=1h")
+    assert response.status_code == 200
+    assert response.json()["window"] == "1h"
+    assert response.json()["points"][0]["rps"] == 1.0
+    assert seen["window"] == "1h"
+    assert seen["hosts"] is None
+    rejected = client.get("/v1/rates?window=2h")
+    assert rejected.status_code == 400
+    assert rejected.json()["error"] == "bad_window"
+
+
 def test_site_user_cannot_list_addresses(monkeypatch):
     monkeypatch.setenv("LEDGESEC_SESSION_SECRET", SECRET)
     holder = Holder()

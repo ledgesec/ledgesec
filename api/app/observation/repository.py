@@ -61,6 +61,23 @@ def count_query(host_ids: list[str] | None) -> tuple[str, dict[str, str]]:
     return sql, params
 
 
+def series_query(host_ids: list[str] | None, span: int, step: int) -> tuple[str, dict[str, str]]:
+    span_seconds = int(span)
+    step_seconds = int(step)
+    predicate, params = host_predicate(host_ids)
+    where = f"ts >= now() - INTERVAL {span_seconds + step_seconds} SECOND"
+    if predicate:
+        where = f"{where} AND {predicate}"
+    sql = (
+        "SELECT toString(toStartOfInterval(ts, "
+        f"INTERVAL {step_seconds} SECOND)) AS bucket, count() AS count "
+        "FROM ledgesec.events "
+        f"WHERE {where} "
+        "GROUP BY bucket FORMAT JSONEachRow"
+    )
+    return sql, params
+
+
 def rate_query(host_ids: list[str] | None) -> tuple[str, dict[str, str]]:
     predicate, params = host_predicate(host_ids)
     where = "ts >= now() - INTERVAL 60 SECOND"
@@ -88,6 +105,12 @@ def country_query(host_ids: list[str] | None) -> tuple[str, dict[str, str]]:
 def summary_rows(host_ids: list[str] | None) -> list[dict]:
     prepare_journal()
     sql, params = count_query(host_ids)
+    return clickhouse_rows(sql, params)
+
+
+def series_rows(host_ids: list[str] | None, span: int, step: int) -> list[dict]:
+    prepare_journal()
+    sql, params = series_query(host_ids, span, step)
     return clickhouse_rows(sql, params)
 
 

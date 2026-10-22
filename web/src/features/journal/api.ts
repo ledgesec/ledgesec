@@ -1,4 +1,4 @@
-import type { AddressRow, Observation, Summary } from "@/entities/observation/model";
+import type { AddressRow, Observation, RateSeries, Summary } from "@/entities/observation/model";
 import { apiError } from "@/shared/lib/api-error";
 import { BLANK_FIELDS, fieldParams, type JournalFields } from "@/widgets/table-tools/query";
 
@@ -98,6 +98,12 @@ export async function readSummary(): Promise<Summary> {
     by_site: body.by_site ?? [],
     slow: body.slow ?? [],
   };
+}
+
+export async function readRates(window: string): Promise<RateSeries> {
+  const response = await fetch(`/api/v1/rates?window=${encodeURIComponent(window)}`, { credentials: "include" });
+  if (!response.ok) throw new Error(apiError.journal);
+  return (await response.json()) as RateSeries;
 }
 
 export async function readAddresses(

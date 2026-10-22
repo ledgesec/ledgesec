@@ -175,34 +175,34 @@ export function SiteBoard({
         <p className="mt-1 text-xs text-muted-foreground">
           The name is the Host header. Counts are the last 24 hours. The rate is the last minute.
         </p>
-        {lines === null ? (
-          <div aria-busy="true">
-            <ColumnFrame specs={SITE_COLUMNS} layout={sitesLayout} heads={siteHeads}>
-              <ColumnSkeleton columns={sitesLayout.columns} rows={SKELETON_ROWS} />
-            </ColumnFrame>
-          </div>
-        ) : lines.length === 0 ? (
-          <div className="mt-4">
-            <ColumnSettings columns={sitesLayout.columns} labels={SITE_COLUMNS} onToggle={sitesLayout.toggle} />
-            <p className="text-sm text-muted-foreground">No sites in this window.</p>
-          </div>
-        ) : (
-          <div className="mt-4">
-            <TableTools
-              query={siteQuery}
-              onQuery={setSiteQuery}
-              filters={[
-                {
-                  id: "site",
-                  label: FIELD_SITE,
-                  value: sitePick,
-                  options: choiceList(lines.map((line) => line.name)),
-                  onChange: setSitePick,
-                },
-              ]}
-            />
+        <div className="mt-4">
+          <TableTools
+            query={siteQuery}
+            onQuery={setSiteQuery}
+            filters={[
+              {
+                id: SITE,
+                label: FIELD_SITE,
+                value: sitePick,
+                options: choiceList((lines ?? []).map((line) => line.name)),
+                onChange: setSitePick,
+              },
+            ]}
+          />
+          {lines === null ? (
+            <div aria-busy="true">
+              <ColumnFrame specs={SITE_COLUMNS} layout={sitesLayout} heads={siteHeads}>
+                <ColumnSkeleton columns={sitesLayout.columns} rows={SKELETON_ROWS} />
+              </ColumnFrame>
+            </div>
+          ) : (
             <HoldRegion held={siteHeld}>
-            {sites.length === 0 ? (
+            {lines.length === 0 ? (
+              <>
+                <ColumnSettings columns={sitesLayout.columns} labels={SITE_COLUMNS} onToggle={sitesLayout.toggle} />
+                <p className="text-sm text-muted-foreground">No sites in this window.</p>
+              </>
+            ) : sites.length === 0 ? (
               <>
                 <ColumnSettings columns={sitesLayout.columns} labels={SITE_COLUMNS} onToggle={sitesLayout.toggle} />
                 <p className="text-sm text-muted-foreground">{NO_MATCH}</p>
@@ -236,8 +236,8 @@ export function SiteBoard({
               </ColumnFrame>
             )}
             </HoldRegion>
-          </div>
-        )}
+          )}
+        </div>
       </section>
       {showEdges ? (
         <section className="glass-panel p-4">
@@ -274,34 +274,34 @@ export function SiteBoard({
         <p className="mt-1 text-xs text-muted-foreground">
           Average over the last 24 hours. A path with no duration from the collector stays off this list.
         </p>
-        {summary === null ? (
-          <div aria-busy="true">
-            <ColumnFrame specs={SLOW_COLUMNS} layout={slowLayout} heads={slowHeads}>
-              <ColumnSkeleton columns={slowLayout.columns} rows={SKELETON_ROWS} />
-            </ColumnFrame>
-          </div>
-        ) : (summary.slow ?? []).length === 0 ? (
-          <div className="mt-4">
-            <ColumnSettings columns={slowLayout.columns} labels={SLOW_COLUMNS} onToggle={slowLayout.toggle} />
-            <p className="text-sm text-muted-foreground">No request time in this window.</p>
-          </div>
-        ) : (
-          <div className="mt-4">
-            <TableTools
-              query={slowQuery}
-              onQuery={setSlowQuery}
-              filters={[
-                {
-                  id: "label",
-                  label: FIELD_LABEL,
-                  value: slowLabel,
-                  options: choiceList((summary?.slow ?? []).map((row) => row.label)),
-                  onChange: setSlowLabel,
-                },
-              ]}
-            />
+        <div className="mt-4">
+          <TableTools
+            query={slowQuery}
+            onQuery={setSlowQuery}
+            filters={[
+              {
+                id: LABEL,
+                label: FIELD_LABEL,
+                value: slowLabel,
+                options: choiceList((summary?.slow ?? []).map((row) => row.label)),
+                onChange: setSlowLabel,
+              },
+            ]}
+          />
+          {summary === null ? (
+            <div aria-busy="true">
+              <ColumnFrame specs={SLOW_COLUMNS} layout={slowLayout} heads={slowHeads}>
+                <ColumnSkeleton columns={slowLayout.columns} rows={SKELETON_ROWS} />
+              </ColumnFrame>
+            </div>
+          ) : (
             <HoldRegion held={slowHeld}>
-            {slow.length === 0 ? (
+            {(summary.slow ?? []).length === 0 ? (
+              <>
+                <ColumnSettings columns={slowLayout.columns} labels={SLOW_COLUMNS} onToggle={slowLayout.toggle} />
+                <p className="text-sm text-muted-foreground">No request time in this window.</p>
+              </>
+            ) : slow.length === 0 ? (
               <>
                 <ColumnSettings columns={slowLayout.columns} labels={SLOW_COLUMNS} onToggle={slowLayout.toggle} />
                 <p className="text-sm text-muted-foreground">{NO_MATCH}</p>
@@ -338,8 +338,8 @@ export function SiteBoard({
               </ColumnFrame>
             )}
             </HoldRegion>
-          </div>
-        )}
+          )}
+        </div>
       </section>
     </div>
   );

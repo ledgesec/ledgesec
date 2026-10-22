@@ -12,6 +12,7 @@ class Code:
     BAD_RULE = "bad_rule"
     BAD_SITE = "bad_site"
     BAD_USER = "bad_user"
+    BAD_WINDOW = "bad_window"
     CLICKHOUSE_DOWN = "clickhouse_down"
     EXISTS = "exists"
     INGEST_DISABLED = "ingest_disabled"

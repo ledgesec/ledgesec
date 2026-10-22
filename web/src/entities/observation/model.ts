@@ -34,6 +34,10 @@ export type Summary = {
   countries: { code: string; requests: number }[];
 };
 
+export type RatePoint = { at: string; requests: number; rps: number };
+
+export type RateSeries = { window: string; step: number; points: RatePoint[] };
+
 export type AddressRow = {
   ip: string;
   edges: Record<string, number>;

@@ -11,6 +11,7 @@ from app.observation.page import (
     encode_event_cursor,
     page_cursors,
 )
+from app.observation.rates import bucket_key, rates_body, window_of
 from app.observation.repository import (
     address_key_rows,
     address_sample_rows,
@@ -20,6 +21,7 @@ from app.observation.repository import (
     insert_events,
     open_country_rows,
     rate_rows,
+    series_rows,
     summary_rows,
 )
 from app.observation.summary import CountRow, summarize, with_rates
@@ -49,6 +51,15 @@ def fetch_summary(host_ids: list[str] | None = None) -> dict:
     ]
     places = tally_countries(country_rows(host_ids), open_country_rows(host_ids))
     return with_rates(summarize(rows), rate_rows(host_ids), places)
+
+
+def fetch_rates(host_ids: list[str] | None, window: str) -> dict:
+    name, span, step = window_of(window)
+    found: dict[str, int] = {}
+    for row in series_rows(host_ids, span, step):
+        key = bucket_key(str(row.get("bucket") or ""))
+        found[key] = found.get(key, 0) + int(row.get("count") or 0)
+    return rates_body(found, name, span, step)
 
 
 def fetch_events(limit: int, host_ids: list[str] | None = None) -> list[dict]:

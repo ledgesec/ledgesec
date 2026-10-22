@@ -54,6 +54,19 @@ export function ProbeBoard({
       </section>
       <section className="glass-panel p-4">
         <h2 className="text-sm font-medium">Probe paths</h2>
+        <TableTools
+          query={query}
+          onQuery={setQuery}
+          filters={[
+            {
+              id: LABEL,
+              label: FIELD_LABEL,
+              value: label,
+              options: choiceList((summary?.markers ?? []).map((marker) => marker.label)),
+              onChange: setLabel,
+            },
+          ]}
+        />
         {!summary ? (
           <ul className="mt-3 divide-y divide-cyber-cyan/10" aria-busy="true">
             {Array.from({ length: SKELETON_PATHS }, (_, index) => (
@@ -66,47 +79,32 @@ export function ProbeBoard({
               </li>
             ))}
           </ul>
-        ) : summary.markers.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">No probes in this window.</p>
         ) : (
-          <>
-            <TableTools
-              query={query}
-              onQuery={setQuery}
-              filters={[
-                {
-                  id: "label",
-                  label: FIELD_LABEL,
-                  value: label,
-                  options: choiceList(summary.markers.map((marker) => marker.label)),
-                  onChange: setLabel,
-                },
-              ]}
-            />
-            <HoldRegion held={queryHeld}>
-            {markers.length === 0 ? (
+          <HoldRegion held={queryHeld}>
+            {summary.markers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No probes in this window.</p>
+            ) : markers.length === 0 ? (
               <p className="text-sm text-muted-foreground">{NO_MATCH}</p>
             ) : (
-          <ul className="mt-3 divide-y divide-cyber-cyan/10">
-            {markers.map((marker) => (
-              <li key={marker.path}>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between gap-3 py-2 text-left"
-                  onClick={() => onPath(marker.path)}
-                >
-                  <span className="inline-flex min-w-0 items-center gap-2">
-                    <Badge variant="destructive">{marker.label}</Badge>
-                    <span className="truncate font-mono text-xs">{marker.path}</span>
-                  </span>
-                  <span className="font-mono text-sm text-cyber-cyan">{marker.count}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+              <ul className="mt-3 divide-y divide-cyber-cyan/10">
+                {markers.map((marker) => (
+                  <li key={marker.path}>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-3 py-2 text-left"
+                      onClick={() => onPath(marker.path)}
+                    >
+                      <span className="inline-flex min-w-0 items-center gap-2">
+                        <Badge variant="destructive">{marker.label}</Badge>
+                        <span className="truncate font-mono text-xs">{marker.path}</span>
+                      </span>
+                      <span className="font-mono text-sm text-cyber-cyan">{marker.count}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
-            </HoldRegion>
-          </>
+          </HoldRegion>
         )}
       </section>
     </div>

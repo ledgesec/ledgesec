@@ -132,6 +132,18 @@ class CountryCount(BaseModel):
     requests: int
 
 
+class RatePoint(BaseModel):
+    at: str
+    requests: int
+    rps: float
+
+
+class RatesOut(BaseModel):
+    window: Literal["1h", "3h", "6h", "12h", "24h"]
+    step: int
+    points: list[RatePoint]
+
+
 class SummaryOut(BaseModel):
     window: Literal["24h"]
     requests: int
