@@ -55,15 +55,14 @@ export function CabinetShell({
               <VersionMark />
             </span>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white/40 hover:text-white"
+          <button
+            type="button"
+            className="rounded-lg p-1.5 text-white/40 transition-all duration-200 hover:bg-white/10 hover:text-white active:translate-y-px active:bg-white/15"
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             onClick={() => setCollapsed((value) => !value)}
           >
-            {collapsed ? <ChevronRight /> : <ChevronLeft />}
-          </Button>
+            {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+          </button>
         </div>
         <Nav nav={nav} section={section} pulse={pulse} onSection={onSection} collapsed={collapsed} />
         <SignOut onSignOut={onSignOut} collapsed={collapsed} />
@@ -149,14 +148,14 @@ function SectionButton({
     <button
       type="button"
       onClick={() => onSection(item.id)}
-      className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ${
+      className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
         active
-          ? "border border-cyber-cyan/50 bg-cyber-cyan/10 text-white"
-          : "border border-transparent text-white/70 hover:bg-white/5 hover:text-white"
+          ? "border border-cyber-cyan/50 bg-cyber-cyan/10 text-white shadow-[0_0_22px_rgb(0_240_255/0.08)]"
+          : "border border-transparent text-white/45 hover:translate-x-0.5 hover:bg-white/10 hover:text-white active:translate-x-1 active:bg-white/15 active:text-white"
       }`}
     >
-      {active ? <span className="absolute top-2 bottom-2 left-0 w-1 rounded-full bg-cyber-cyan" /> : null}
-      <Icon className={`size-5 shrink-0 ${active ? "text-cyber-cyan" : "text-white/45"}`} />
+      {active ? <span className="absolute top-2 bottom-2 left-0 w-1 rounded-full bg-cyber-cyan shadow-[0_0_12px_rgb(0_240_255/0.9)]" /> : null}
+      <Icon className={`size-5 shrink-0 transition-colors duration-200 ${active ? "text-cyber-cyan" : "text-white/45 group-hover:text-white group-active:text-white"}`} />
       {collapsed ? null : <span className="flex-1 text-left">{item.label}</span>}
       {collapsed ? null : <ItemMark item={item} active={active} pulse={pulse} />}
     </button>
@@ -196,7 +195,7 @@ function SignOut({ onSignOut, collapsed }: { onSignOut: () => void; collapsed: b
       <button
         type="button"
         onClick={onSignOut}
-        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/50 hover:bg-cyber-red/10 hover:text-cyber-red"
+        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/45 transition-all duration-200 hover:translate-x-0.5 hover:bg-cyber-red/10 hover:text-cyber-red active:translate-x-1 active:bg-cyber-red/20"
       >
         <LogOut className="size-5" />
         {collapsed ? null : "Sign out"}
