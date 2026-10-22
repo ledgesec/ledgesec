@@ -3,6 +3,7 @@ from sqlalchemy import engine_from_config, pool
 
 import app.access.models
 import app.edge.models  # noqa: F401 — register cert_state on the metadata
+import app.observation.models  # noqa: F401 — register probe_rules on the metadata
 from app.db import database_url
 from app.orm import Base
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { BLANK_FIELDS, FIND_LIMIT, QUERY, SITE, choiceList, fieldParams, fieldsFrom, hrefWithParams, keepRow } from "./query.ts";
+import { BLANK_FIELDS, FIND_LIMIT, FIND_WAIT_MS, QUERY, SITE, choiceList, fieldParams, fieldsFrom, hrefWithParams, keepRow, searchHeld } from "./query.ts";
 
 test("a row stays when the search and filters are empty", () => {
   assert.equal(keepRow(["shop.example", "/pricing"], "", ["shop.example"], [""]), true);
@@ -34,6 +34,12 @@ test("a table query is written into the page address and an empty value is remov
   assert.equal(fieldsFrom(params, true).edge, "eu");
   assert.equal(params.get(QUERY)?.length, FIND_LIMIT);
   assert.equal(params.get(SITE), null);
+});
+
+test("a search holds until the wait commits it, and a filter does not", () => {
+  assert.equal(searchHeld("env", "", FIND_WAIT_MS), true);
+  assert.equal(searchHeld("env", "env", FIND_WAIT_MS), false);
+  assert.equal(searchHeld("env", "", 0), false);
 });
 
 test("choices drop blanks and repeat once", () => {

@@ -22,7 +22,7 @@ test("a cabinet tab is a path under the local root and a tail on the public host
   assert.equal(sectionHref("dash.ledgesec.com", CLIENT, REQUESTS), "/requests");
   assert.equal(sectionHref("admin.ledgesec.com", ADMIN, HOSTS), "/hosts");
   assert.equal(requestHref("localhost:44733", CLIENT, "", "/.env"), "/dashboard/requests?path=%2F.env");
-  assert.equal(requestHref("dash.ledgesec.com", CLIENT, "203.0.113.10", ""), "/requests?ip=203.0.113.10");
+  assert.equal(requestHref("dash.ledgesec.com", CLIENT, "203.0.113.10", ""), "/requests?q=203.0.113.10");
   assert.equal(
     requestHref("localhost:44733", ADMIN, "", "/.env", new URLSearchParams("q=shop&ip=203.0.113.10")),
     "/admin/requests?q=shop&path=%2F.env",

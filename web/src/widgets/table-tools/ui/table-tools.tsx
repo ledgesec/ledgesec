@@ -1,13 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Filter, Search } from "lucide-react";
+import { Filter, Search, X } from "lucide-react";
 import { CountryMark } from "@/shared/ui/country-mark";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { SelectField } from "@/shared/ui/select";
-import { ALL, COUNTRY, FILTERS, FIND_LIMIT, FIND_WAIT_MS, SEARCH, hrefWithParams } from "@/widgets/table-tools/query";
+import { ALL, CLEAR, COUNTRY, FILTERS, FIND_LIMIT, FIND_WAIT_MS, SEARCH, hrefWithParams, searchHeld } from "@/widgets/table-tools/query";
+
+export const TABLE_HOLD = "pointer-events-none opacity-60 transition-opacity";
+
+export function HoldRegion({ held, children }: { held: boolean; children: ReactNode }) {
+  return (
+    <div className={held ? TABLE_HOLD : undefined} aria-busy={held ? true : undefined}>
+      {children}
+    </div>
+  );
+}
 
 export function useField(name: string, wait = FIND_WAIT_MS) {
   const pathname = usePathname();
@@ -16,6 +26,12 @@ export function useField(name: string, wait = FIND_WAIT_MS) {
   const stored = (params.get(name) ?? "").slice(0, FIND_LIMIT);
   const [draft, setDraft] = useState(stored);
   const pending = useRef<string | null>(null);
+  const timer = useRef<number | null>(null);
+  const route = useRef({ pathname, params, router, stored, name });
+
+  useEffect(() => {
+    route.current = { pathname, params, router, stored, name };
+  }, [pathname, params, router, stored, name]);
 
   useEffect(() => {
     if (pending.current !== null) return;
@@ -23,26 +39,46 @@ export function useField(name: string, wait = FIND_WAIT_MS) {
   }, [stored]);
 
   useEffect(() => {
+    return () => {
+      if (timer.current !== null) window.clearTimeout(timer.current);
+    };
+  }, []);
+
+  function flush() {
+    timer.current = null;
     const text = pending.current;
     if (text === null) return;
-    if (text === stored || (text.trim() === "" && stored === "")) {
+    const current = route.current;
+    if (text === current.stored || (text.trim() === "" && current.stored === "")) {
       pending.current = null;
       return;
     }
-    const timer = window.setTimeout(() => {
-      pending.current = null;
-      router.replace(hrefWithParams(pathname, params, { [name]: text }), { scroll: false });
-    }, wait);
-    return () => window.clearTimeout(timer);
-  }, [draft, name, params, pathname, router, stored, wait]);
+    pending.current = null;
+    current.router.replace(hrefWithParams(current.pathname, current.params, { [current.name]: text }), { scroll: false });
+  }
 
   function setValue(next: string) {
     const text = next.slice(0, FIND_LIMIT);
-    pending.current = text;
     setDraft(text);
+    const current = route.current;
+    if (text === current.stored || (text.trim() === "" && current.stored === "")) {
+      pending.current = null;
+      if (timer.current !== null) {
+        window.clearTimeout(timer.current);
+        timer.current = null;
+      }
+      return;
+    }
+    pending.current = text;
+    if (wait <= 0) {
+      flush();
+      return;
+    }
+    if (timer.current !== null) return;
+    timer.current = window.setTimeout(flush, wait);
   }
 
-  return [draft, setValue] as const;
+  return [draft, setValue, stored, searchHeld(draft, stored, wait)] as const;
 }
 
 export type FieldFilter = {
@@ -74,9 +110,19 @@ export function TableTools({
             placeholder={SEARCH}
             value={query}
             maxLength={FIND_LIMIT}
-            className="pl-8"
+            className={query === "" ? "pl-8" : "pr-8 pl-8"}
             onChange={(event) => onQuery(event.target.value)}
           />
+          {query === "" ? null : (
+            <button
+              type="button"
+              aria-label={CLEAR}
+              className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              onClick={() => onQuery("")}
+            >
+              <X className="size-4" />
+            </button>
+          )}
         </div>
         {shown.length > 0 ? (
           <Button type="button" variant="outline" aria-expanded={open} onClick={() => setOpen((value) => !value)}>

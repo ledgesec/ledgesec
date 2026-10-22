@@ -9,6 +9,7 @@ class Code:
     BAD_LOGIN = "bad_login"
     BAD_MAC = "bad_mac"
     BAD_OWNER = "bad_owner"
+    BAD_RULE = "bad_rule"
     BAD_SITE = "bad_site"
     BAD_USER = "bad_user"
     CLICKHOUSE_DOWN = "clickhouse_down"

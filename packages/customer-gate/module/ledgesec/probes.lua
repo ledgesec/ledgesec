@@ -5,7 +5,7 @@ local rules = {
   {
     exact = { "/.env" },
     prefixes = { "/.env.", "/.env/", "/.env-" },
-    suffixes = { "/.env", "/.env~", "/sendgrid.env", "/config.env", "/env.js", "/env.txt", "/env-config.js" },
+    suffixes = { "/.env", "/.env~", "/sendgrid.env", "/config.env", "/env.js", "/env.txt", "/env-config.js", "/credentials.env", "/secrets.env", "/secret.env", "/.env0", "/.env1", "/.env2", "/.env3", "/.env4", "/.env5", "/.env6", "/.env7", "/.env8", "/.env9", "/.env_copy", "/_environment" },
     contains = { "/.env.", "/.env/" },
   },
   {
@@ -35,8 +35,8 @@ local rules = {
   {
     exact = { "/.aws" },
     prefixes = { "/.aws/" },
-    suffixes = { "/.boto", "/.s3cfg", "/.amplifyrc", "/credentials.json", "/credentials.ini", "/aws-exports.js", "/config/aws.yml" },
-    contains = {  },
+    suffixes = { "/.boto", "/.s3cfg", "/.amplifyrc", "/credentials.json", "/credentials.ini", "/aws-exports.js", "/aws-exports.json", "/config/aws.yml", "/config/aws.yaml", "/config/aws.php", "/config/aws.json", "/config/azure.php", "/azure/config.json", "/bedrock/config.json", "/gcloud-service-key.json", "/service-account.json", "/serviceaccount.json", "/application_default_credentials.json", "/firebase-adminsdk.json", "/firebase-key.json", "/google-credentials.json", "/google-key.json", "/gcp-credentials.json", "/gcp-key.json", "/gcp-sa.json", "/keyfile.json", "/key.json", "/sa.json" },
+    contains = { "/.aws/", "/.config/gcloud/", "/latest/meta-data/", "firebase-adminsdk" },
   },
   {
     exact = {  },
@@ -61,6 +61,12 @@ local rules = {
     prefixes = {  },
     suffixes = {  },
     contains = { "/configuration.php" },
+  },
+  {
+    exact = {  },
+    prefixes = {  },
+    suffixes = {  },
+    contains = { "/config.php.bak", "/config.php.old", "/config.php.save", "/config.php.swp", "/config.php~" },
   },
   {
     exact = {  },
@@ -95,7 +101,7 @@ local rules = {
   {
     exact = { "/server-status" },
     prefixes = { "/server-status/" },
-    suffixes = {  },
+    suffixes = { "/server-status.php", "/server-info.php" },
     contains = {  },
   },
   {
@@ -147,10 +153,22 @@ local rules = {
     contains = {  },
   },
   {
+    exact = { "/_profiler", "/info", "/phpinfo" },
+    prefixes = { "/_profiler/" },
+    suffixes = { "/phpinfo.php", "/info.php", "/wp-content/debug.log", "/info.php.bak", "/php-info.php", "/phpversion.php", "/debug.php", "/pinfo.php", "/pi.php", "/i.php", "/p.php", "/php.php", "/test.php" },
+    contains = { "phpinfo" },
+  },
+  {
     exact = {  },
     prefixes = {  },
-    suffixes = { "/phpinfo.php", "/info.php", "/wp-content/debug.log" },
-    contains = {  },
+    suffixes = { "/laravel.log" },
+    contains = { "/storage/logs/" },
+  },
+  {
+    exact = {  },
+    prefixes = {  },
+    suffixes = { "/ai/credentials", "/llm/credentials", "/claude/config.json", "/anthropic/config.json" },
+    contains = { "/ai/config." },
   },
   {
     exact = {  },

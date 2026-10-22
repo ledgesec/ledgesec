@@ -30,6 +30,25 @@ class MarkerOut(BaseModel):
     label: str
 
 
+class ProbeRuleIn(BaseModel):
+    code: str = ""
+    label: str
+    kind: str
+    pattern: str
+
+
+class ProbeRuleOut(BaseModel):
+    id: str
+    code: str
+    label: str
+    kind: str
+    pattern: str
+
+
+class ProbeRulesOut(BaseModel):
+    rules: list[ProbeRuleOut]
+
+
 class ObservationOut(BaseModel):
     ts: str
     site_id: str

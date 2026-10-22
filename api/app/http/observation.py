@@ -13,8 +13,9 @@ from app.codes import Code
 from app.errors import ApiError
 from app.http.body import read_body
 from app.http.deps import ActorDep, AdminDep, Db
-from app.http.schemas import AddressesOut, ObservationOut, StoredOut, SummaryOut
+from app.http.schemas import AddressesOut, ObservationOut, ProbeRuleIn, ProbeRulesOut, StoredOut, SummaryOut
 from app.observation.ingest import INGEST_BODY_LIMIT, accept_batch, batch_note
+from app.observation.rules import add_rule, applied_rules, list_custom, remove_rule
 from app.observation.service import (
     fetch_address_page,
     fetch_event_page,
@@ -52,18 +53,21 @@ def observations(
         return JSONResponse({"observations": [], "next": None, "prev": None})
     wide = shows_ip(actor)
     try:
-        rows, nxt, prev = fetch_event_page(
-            host_ids,
-            cursor or None,
-            direction,
-            ip if wide else None,
-            path or None,
-            site=site or None,
-            country=country or None,
-            edge=edge or None,
-            q=q or None,
-            wide=wide,
-        )
+        with applied_rules(db):
+            rows, nxt, prev = fetch_event_page(
+                host_ids,
+                cursor or None,
+                direction,
+                ip if wide else None,
+                path or None,
+                site=site or None,
+                country=country or None,
+                edge=edge or None,
+                q=q or None,
+                wide=wide,
+            )
+    except SQLAlchemyError as exc:
+        raise ApiError(503, Code.POSTGRES_DOWN) from exc
     except ValueError as exc:
         raise ApiError(400, str(exc)) from exc
     except Exception as exc:
@@ -84,7 +88,10 @@ def summary(actor: ActorDep, db: Db) -> JSONResponse:
     except Unscoped:
         return JSONResponse(SummaryOut.model_validate(summarize([])).model_dump())
     try:
-        body = SummaryOut.model_validate(fetch_summary(host_ids)).model_dump()
+        with applied_rules(db):
+            body = SummaryOut.model_validate(fetch_summary(host_ids)).model_dump()
+    except SQLAlchemyError as exc:
+        raise ApiError(503, Code.POSTGRES_DOWN) from exc
     except Exception as exc:
         raise ApiError(503, Code.CLICKHOUSE_DOWN) from exc
     return JSONResponse(body)
@@ -93,6 +100,7 @@ def summary(actor: ActorDep, db: Db) -> JSONResponse:
 @router.get("/v1/addresses")
 def addresses(
     _actor: AdminDep,
+    db: Db,
     cursor: str = "",
     direction: str = "next",
     q: str = "",
@@ -101,14 +109,17 @@ def addresses(
     edge: str = "",
 ) -> JSONResponse:
     try:
-        rows, nxt, prev = fetch_address_page(
-            cursor or None,
-            direction,
-            site=site or None,
-            country=country or None,
-            edge=edge or None,
-            q=q or None,
-        )
+        with applied_rules(db):
+            rows, nxt, prev = fetch_address_page(
+                cursor or None,
+                direction,
+                site=site or None,
+                country=country or None,
+                edge=edge or None,
+                q=q or None,
+            )
+    except SQLAlchemyError as exc:
+        raise ApiError(503, Code.POSTGRES_DOWN) from exc
     except ValueError as exc:
         raise ApiError(400, str(exc)) from exc
     except Exception as exc:
@@ -137,3 +148,40 @@ async def ingest(request: Request, db: Db) -> JSONResponse:
     except Exception as exc:
         raise ApiError(400, Code.REJECTED) from exc
     return JSONResponse(StoredOut(stored=stored).model_dump(), status_code=202)
+
+
+@router.get("/v1/probe-rules")
+def probe_rules(db: Db, _actor: AdminDep) -> JSONResponse:
+    try:
+        rows = list_custom(db)
+    except SQLAlchemyError as exc:
+        raise ApiError(503, Code.POSTGRES_DOWN) from exc
+    return JSONResponse(ProbeRulesOut.model_validate({"rules": rows}).model_dump())
+
+
+@router.post("/v1/probe-rules")
+async def create_probe_rule(request: Request, db: Db, _actor: AdminDep) -> JSONResponse:
+    try:
+        parsed = ProbeRuleIn.model_validate_json(await read_body(request))
+    except Exception as exc:
+        raise ApiError(400, Code.BAD_BODY) from exc
+    try:
+        row = add_rule(db, parsed.code, parsed.label, parsed.kind, parsed.pattern)
+    except ValueError as exc:
+        code = str(exc)
+        status = 409 if code == Code.EXISTS else 400
+        raise ApiError(status, code if code in (Code.BAD_RULE, Code.EXISTS) else Code.BAD_RULE) from exc
+    except SQLAlchemyError as exc:
+        raise ApiError(503, Code.POSTGRES_DOWN) from exc
+    return JSONResponse(row, status_code=201)
+
+
+@router.delete("/v1/probe-rules/{rule_id}")
+def delete_probe_rule(rule_id: str, db: Db, _actor: AdminDep) -> JSONResponse:
+    try:
+        remove_rule(db, rule_id)
+    except ValueError as exc:
+        raise ApiError(404, Code.NOT_FOUND) from exc
+    except SQLAlchemyError as exc:
+        raise ApiError(503, Code.POSTGRES_DOWN) from exc
+    return JSONResponse({"ok": True})

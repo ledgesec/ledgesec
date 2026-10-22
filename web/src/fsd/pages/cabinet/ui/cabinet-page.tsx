@@ -10,6 +10,7 @@ import {
   FIELD_COUNTRY,
   FIELD_EDGE,
   FIELD_SITE,
+  CLEAR,
   NO_MATCH,
   QUERY,
   SITE,
@@ -17,7 +18,7 @@ import {
   fieldsFrom,
   keepRow,
 } from "@/widgets/table-tools/query";
-import { TableTools, useField } from "@/widgets/table-tools/ui/table-tools";
+import { HoldRegion, TableTools, useField } from "@/widgets/table-tools/ui/table-tools";
 import {
   DEFAULT_REFRESH_SECONDS,
   REFRESH_SECONDS,
@@ -86,21 +87,29 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
   const [journal, setJournal] = useState<Journal | null>(null);
   const [journalError, setJournalError] = useState(false);
   const tableFields = fieldsFrom(params, mode === ADMIN);
+  const lookupKey = `${tableFields.q}\n${tableFields.site}\n${tableFields.country}\n${tableFields.edge}\n${addressFilter ?? ""}\n${pathFilter ?? ""}`;
+  const [seenLookup, setSeenLookup] = useState(lookupKey);
+  const [searchHeld, setSearchHeld] = useState(false);
+  const [lookupHeld, setLookupHeld] = useState(false);
   const [refreshSeconds, setRefreshSeconds] = useState<RefreshSeconds>(DEFAULT_REFRESH_SECONDS);
   const [freshRequests, setFreshRequests] = useState<string[]>([]);
+  if (seenLookup !== lookupKey) {
+    setSeenLookup(lookupKey);
+    if (journal && (section === REQUESTS || (section === ADDRESSES && mode === ADMIN))) setLookupHeld(true);
+  }
   const seenRequests = useRef<string[] | null>(null);
   const addressOnFirstPage = useRef(true);
   const observationOnFirstPage = useRef(true);
   const scoped = useRef(false);
-  const filterRef = useRef({ section, addressFilter, pathFilter });
   const tableLookup = useMemo(
     () => ({ q: tableFields.q, site: tableFields.site, country: tableFields.country, edge: tableFields.edge }),
     [tableFields.q, tableFields.site, tableFields.country, tableFields.edge],
   );
+  const filterRef = useRef({ section, addressFilter, pathFilter, fields: tableLookup });
 
   useEffect(() => {
-    filterRef.current = { section, addressFilter, pathFilter };
-  }, [section, addressFilter, pathFilter]);
+    filterRef.current = { section, addressFilter, pathFilter, fields: tableLookup };
+  }, [section, addressFilter, pathFilter, tableLookup]);
 
   const accepts = useCallback(
     (next: SessionUser) => (mode === ADMIN ? next.role === ADMIN : next.role === USER),
@@ -117,8 +126,9 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
       const view = filterRef.current;
       const ip = view.section === REQUESTS ? (view.addressFilter ?? "") : "";
       const path = view.section === REQUESTS ? (view.pathFilter ?? "") : "";
+      const fields = view.section === REQUESTS ? view.fields : BLANK_FIELDS;
       const addresses = mode === ADMIN ? readAddresses() : Promise.resolve(emptyAddressPage);
-      Promise.all([readSummary(), readObservations(null, "next", ip, path), addresses])
+      Promise.all([readSummary(), readObservations(null, "next", ip, path, fields, mode === ADMIN), addresses])
         .then(([summary, observations, addressPage]) => {
           seenRequests.current = observations.rows.map(observationKey);
           setFreshRequests([]);
@@ -235,8 +245,10 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
 
   useEffect(() => {
     if (phase !== "ready" || section !== REQUESTS) return;
+    let cancelled = false;
     readObservations(null, "next", addressFilter ?? "", pathFilter ?? "", tableLookup, mode === ADMIN)
       .then((page) => {
+        if (cancelled) return;
         seenRequests.current = page.rows.map(observationKey);
         setFreshRequests([]);
         setJournal((current) =>
@@ -245,18 +257,36 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
             : current,
         );
       })
-      .catch(() => setJournalError(true));
+      .catch(() => {
+        if (!cancelled) setJournalError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLookupHeld(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [phase, section, mode, addressFilter, pathFilter, tableLookup]);
 
   useEffect(() => {
     if (phase !== "ready" || section !== ADDRESSES || mode !== ADMIN) return;
+    let cancelled = false;
     readAddresses(null, "next", tableLookup)
       .then((page) => {
+        if (cancelled) return;
         setJournal((current) =>
           current ? { ...current, addresses: page.rows, addressNext: page.next, addressPrev: page.prev } : current,
         );
       })
-      .catch(() => setJournalError(true));
+      .catch(() => {
+        if (!cancelled) setJournalError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLookupHeld(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [phase, section, mode, tableLookup]);
 
   useEffect(() => {
@@ -425,7 +455,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
           freshRequests={freshRequests}
         />
       ) : null}
-      {(journal || !journalError) && section === PROBES ? <ProbeBoard summary={journal?.summary ?? null} onPath={openPath} /> : null}
+      {(journal || !journalError) && section === PROBES ? <ProbeBoard summary={journal?.summary ?? null} onPath={openPath} admin={mode === ADMIN} /> : null}
       {(journal || !journalError) && section === SITES ? (
         <SiteBoard summary={journal?.summary ?? null} showEdges={mode === ADMIN} onPath={openPath} />
       ) : null}
@@ -437,7 +467,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
                 Latest requests from <span className="font-mono text-foreground">{addressFilter}</span>
               </p>
               <button type="button" className="text-sm text-cyber-cyan" onClick={clearAddress}>
-                Clear
+                {CLEAR}
               </button>
             </div>
           ) : null}
@@ -447,7 +477,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
                 Latest requests for <span className="font-mono text-foreground">{pathFilter}</span>
               </p>
               <button type="button" className="text-sm text-cyber-cyan" onClick={clearPath}>
-                Clear
+                {CLEAR}
               </button>
             </div>
           ) : null}
@@ -456,7 +486,9 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
             sites={siteNames(journal)}
             countries={(journal?.summary.countries ?? []).map((country) => country.code)}
             edges={(journal?.summary.edges ?? []).map((edge) => edge.id)}
+            onHold={setSearchHeld}
           />
+          <HoldRegion held={searchHeld || lookupHeld}>
           <RequestList
             rows={journal?.observations ?? []}
             pending={!journal}
@@ -468,10 +500,10 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
               tableFields.q !== "" || tableFields.site !== "" || tableFields.country !== "" || tableFields.edge !== ""
                 ? NO_MATCH
                 : addressFilter
-                ? "This address is not in the latest requests."
-                : pathFilter
-                  ? "This path is not in the latest requests."
-                  : undefined
+                  ? "This address is not in the latest requests."
+                  : pathFilter
+                    ? "This path is not in the latest requests."
+                    : undefined
             }
           />
           <TablePager
@@ -480,6 +512,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
             onPrev={() => turnObservations("prev")}
             onNext={() => turnObservations("next")}
           />
+          </HoldRegion>
         </div>
       ) : null}
       {(journal || !journalError) && section === ADDRESSES && mode === ADMIN ? (
@@ -489,7 +522,9 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
             sites={siteNames(journal)}
             countries={(journal?.summary.countries ?? []).map((country) => country.code)}
             edges={(journal?.summary.edges ?? []).map((edge) => edge.id)}
+            onHold={setSearchHeld}
           />
+          <HoldRegion held={searchHeld || lookupHeld}>
           <AddressPanel
             rows={journal?.addresses ?? []}
             pending={!journal}
@@ -506,6 +541,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
             onPrev={() => turnAddresses("prev")}
             onNext={() => turnAddresses("next")}
           />
+          </HoldRegion>
         </div>
       ) : null}
     </CabinetShell>
@@ -524,13 +560,19 @@ function JournalTools({
   countries,
   edges,
   admin,
+  onHold,
 }: {
   sites: string[];
   countries: string[];
   edges: string[];
   admin: boolean;
+  onHold: (held: boolean) => void;
 }) {
-  const [query, setQuery] = useField(QUERY);
+  const [query, setQuery, , queryHeld] = useField(QUERY);
+  useEffect(() => {
+    onHold(queryHeld);
+    return () => onHold(false);
+  }, [onHold, queryHeld]);
   const [site, setSite] = useField(SITE, 0);
   const [country, setCountry] = useField(COUNTRY, 0);
   const [edge, setEdge] = useField(EDGE, 0);
@@ -607,7 +649,7 @@ function Overview({
   observations: Observation[];
   freshRequests: string[];
 }) {
-  const [query, setQuery] = useField(QUERY);
+  const [query, setQuery, appliedQuery, queryHeld] = useField(QUERY);
   const [site, setSite] = useField(SITE, 0);
   const [country, setCountry] = useField(COUNTRY, 0);
   const [edge, setEdge] = useField(EDGE, 0);
@@ -621,7 +663,7 @@ function Overview({
   const rows = latest.filter((row) =>
     keepRow(
       [row.siteId, row.path, row.country, row.marker?.label ?? "", ...(admin ? [row.edgeId, row.ip] : [])],
-      query,
+      appliedQuery,
       [row.siteId, row.country, ...(admin ? [row.edgeId] : [])],
       [site, country, ...(admin ? [pickedEdge] : [])],
     ),
@@ -725,15 +767,17 @@ function Overview({
                 : []),
             ]}
           />
-          <RequestList
-            rows={rows}
-            pending={!summary}
-            showEdge={admin}
-            showAddress={admin}
-            onAddress={onRequests}
-            fresh={freshRequests}
-            empty={query !== "" || site !== "" || country !== "" || pickedEdge !== "" ? NO_MATCH : undefined}
-          />
+          <HoldRegion held={queryHeld}>
+            <RequestList
+              rows={rows}
+              pending={!summary}
+              showEdge={admin}
+              showAddress={admin}
+              onAddress={onRequests}
+              fresh={freshRequests}
+              empty={appliedQuery !== "" || site !== "" || country !== "" || pickedEdge !== "" ? NO_MATCH : undefined}
+            />
+          </HoldRegion>
         </div>
       </section>
       <section className="glass-panel p-4" aria-busy={summary ? undefined : true}>

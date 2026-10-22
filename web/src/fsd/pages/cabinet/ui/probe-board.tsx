@@ -1,19 +1,30 @@
 "use client";
 
+import { MarkerForm } from "@/features/probe-rules/ui/marker-form";
 import type { Summary } from "@/entities/observation/model";
 import { Badge } from "@/shared/ui/badge";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { HourChart } from "@/widgets/hour-chart/ui/hour-chart";
 import { FIELD_LABEL, LABEL, NO_MATCH, QUERY, choiceList, keepRow } from "@/widgets/table-tools/query";
-import { TableTools, useField } from "@/widgets/table-tools/ui/table-tools";
+import { HoldRegion, TableTools, useField } from "@/widgets/table-tools/ui/table-tools";
 
 const SKELETON_PATHS = 4;
 
-export function ProbeBoard({ summary, onPath }: { summary: Summary | null; onPath: (path: string) => void }) {
+export function ProbeBoard({
+  summary,
+  onPath,
+  admin = false,
+}: {
+  summary: Summary | null;
+  onPath: (path: string) => void;
+  admin?: boolean;
+}) {
   const share = summary ? (summary.requests === 0 ? "0%" : `${Math.round((summary.probes / summary.requests) * 100)}%`) : null;
-  const [query, setQuery] = useField(QUERY);
+  const [query, setQuery, appliedQuery, queryHeld] = useField(QUERY);
   const [label, setLabel] = useField(LABEL, 0);
-  const markers = (summary?.markers ?? []).filter((marker) => keepRow([marker.path, marker.label], query, [marker.label], [label]));
+  const markers = (summary?.markers ?? []).filter((marker) =>
+    keepRow([marker.path, marker.label], appliedQuery, [marker.label], [label]),
+  );
   const cards = [
     { label: "Probes", value: summary ? String(summary.probes) : null },
     { label: "Paths", value: summary ? String(summary.markers.length) : null },
@@ -21,6 +32,7 @@ export function ProbeBoard({ summary, onPath }: { summary: Summary | null; onPat
   ];
   return (
     <div className="mt-6 space-y-6">
+      {admin ? <MarkerForm /> : null}
       <div className="grid gap-4 sm:grid-cols-3" aria-busy={summary ? undefined : true}>
         {cards.map((card) => (
           <article key={card.label} className="glass-panel p-4">
@@ -71,6 +83,7 @@ export function ProbeBoard({ summary, onPath }: { summary: Summary | null; onPat
                 },
               ]}
             />
+            <HoldRegion held={queryHeld}>
             {markers.length === 0 ? (
               <p className="text-sm text-muted-foreground">{NO_MATCH}</p>
             ) : (
@@ -92,6 +105,7 @@ export function ProbeBoard({ summary, onPath }: { summary: Summary | null; onPat
             ))}
           </ul>
             )}
+            </HoldRegion>
           </>
         )}
       </section>

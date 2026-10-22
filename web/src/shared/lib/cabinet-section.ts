@@ -10,6 +10,7 @@ export const HOSTS = "hosts";
 
 export const REQUEST_IP = "ip";
 export const REQUEST_PATH = "path";
+export const REQUEST_FIND = "q";
 
 const CLIENT_TABS = [PROBES, REQUESTS, SITES, HOSTS] as const;
 const ADMIN_TABS = [PROBES, REQUESTS, ADDRESSES, SITES, HOSTS] as const;
@@ -55,8 +56,8 @@ export function requestHref(
   current?: { toString(): string },
 ): string {
   const params = new URLSearchParams(current?.toString() ?? "");
-  if (ip) params.set(REQUEST_IP, ip);
-  else params.delete(REQUEST_IP);
+  params.delete(REQUEST_IP);
+  if (ip) params.set(REQUEST_FIND, ip);
   if (path) params.set(REQUEST_PATH, path);
   else params.delete(REQUEST_PATH);
   const base = sectionHref(host, mode, REQUESTS);

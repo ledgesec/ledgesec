@@ -4,12 +4,13 @@ from sqlalchemy.engine import make_url
 
 import app.access.models
 import app.edge.models  # noqa: F401 — register cert_state before reading metadata
+import app.observation.models  # noqa: F401 — register probe_rules before reading metadata
 from app.db import BASELINE, alembic_config, database_url, should_stamp_baseline
 from app.orm import Base
 
 
 def test_metadata_is_the_postgres_tables():
-    assert set(Base.metadata.tables) == {"sites", "users", "cert_state", "hosts", "host_sites"}
+    assert set(Base.metadata.tables) == {"sites", "users", "cert_state", "hosts", "host_sites", "probe_rules"}
     users = Base.metadata.tables["users"]
     assert users.c.email.unique
     assert users.c.site_id.nullable
@@ -37,7 +38,7 @@ def test_stamp_only_an_existing_schema_without_a_version():
 def test_head_revision_follows_the_baseline():
     script = ScriptDirectory.from_config(alembic_config())
     assert BASELINE == "0001"
-    assert script.get_current_head() == "0004"
+    assert script.get_current_head() == "0005"
 
 
 def test_offline_upgrade_creates_the_tables(capsys):
@@ -50,4 +51,6 @@ def test_offline_upgrade_creates_the_tables(capsys):
     assert "CREATE TABLE host_sites" in sql
     assert "owner_id" in sql
     assert "agent_version" in sql
+    assert "CREATE TABLE probe_rules" in sql
+    assert "firebase-key.json" in sql
     assert "alembic_version" in sql

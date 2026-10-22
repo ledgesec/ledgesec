@@ -1,7 +1,14 @@
+import { REQUEST_FIND } from "../../shared/lib/cabinet-section.ts";
+
 export const FIND_LIMIT = 200;
 export const FIND_WAIT_MS = 300;
 
+export function searchHeld(draft: string, stored: string, wait: number) {
+  return wait > 0 && draft !== stored;
+}
+
 export const SEARCH = "Search";
+export const CLEAR = "Clear";
 export const FILTERS = "Filters";
 export const ALL = "All";
 export const NO_MATCH = "Nothing matches.";
@@ -11,7 +18,7 @@ export const FIELD_EDGE = "Edge";
 export const FIELD_PATH = "Path";
 export const FIELD_LABEL = "Label";
 
-export const QUERY = "q";
+export const QUERY = REQUEST_FIND;
 export const SITE = "site";
 export const COUNTRY = "country";
 export const EDGE = "edge";
