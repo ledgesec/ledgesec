@@ -1,4 +1,5 @@
 import { Badge } from "@/shared/ui/badge";
+import { CountryMark } from "@/shared/ui/country-mark";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 import type { AddressRow } from "@/entities/observation/model";
@@ -61,7 +62,11 @@ export function AddressPanel({
           <TableRow key={row.ip} className={row.probes ? "bg-probe-surface text-probe-foreground" : undefined}>
             <TableCell className="font-mono text-xs">
               {row.ip}
-              {row.country ? <span className="text-muted-foreground"> · {row.country}</span> : null}
+              {row.country ? (
+                <span className="ml-2 align-middle">
+                  <CountryMark code={row.country} />
+                </span>
+              ) : null}
             </TableCell>
             <TableCell className="font-mono text-cyber-cyan">
               {typeof row.requests === "number" ? row.requests : requestCount(row.edges)}

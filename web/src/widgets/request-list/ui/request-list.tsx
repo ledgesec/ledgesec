@@ -1,9 +1,15 @@
+"use client";
+
 import { Badge } from "@/shared/ui/badge";
+import { ColumnEye, useColumnMask } from "@/shared/ui/column-eye";
+import { CountryMark } from "@/shared/ui/country-mark";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
+import { covered } from "@/shared/lib/mask";
 import { observationKey } from "@/entities/observation/arrive";
 import type { Observation } from "@/entities/observation/model";
 import { clientStack } from "@/widgets/request-list/client";
+import { FIELD_EDGE, FIELD_PATH, FIELD_SITE } from "@/widgets/table-tools/query";
 
 const SKELETON_ROWS = 6;
 
@@ -24,6 +30,7 @@ export function RequestList({
   fresh?: string[];
   pending?: boolean;
 }) {
+  const mask = useColumnMask();
   if (!pending && rows.length === 0) {
     return <p className="text-muted-foreground">{empty}</p>;
   }
@@ -45,14 +52,31 @@ export function RequestList({
       <TableHeader>
         <TableRow>
           <TableHead>Time</TableHead>
-          <TableHead>Site</TableHead>
-          {showEdge ? <TableHead>Edge</TableHead> : null}
+          <TableHead>
+            <span className="inline-flex items-center gap-1">
+              {FIELD_SITE}
+              <ColumnEye column={FIELD_SITE} hidden={mask.isHidden(FIELD_SITE)} onToggle={() => mask.toggle(FIELD_SITE)} />
+            </span>
+          </TableHead>
+          {showEdge ? (
+            <TableHead>
+              <span className="inline-flex items-center gap-1">
+                {FIELD_EDGE}
+                <ColumnEye column={FIELD_EDGE} hidden={mask.isHidden(FIELD_EDGE)} onToggle={() => mask.toggle(FIELD_EDGE)} />
+              </span>
+            </TableHead>
+          ) : null}
           <TableHead>Country</TableHead>
           {showAddress ? <TableHead>Address</TableHead> : null}
           <TableHead>Method</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>User agent</TableHead>
-          <TableHead>Path</TableHead>
+          <TableHead>
+            <span className="inline-flex items-center gap-1">
+              {FIELD_PATH}
+              <ColumnEye column={FIELD_PATH} hidden={mask.isHidden(FIELD_PATH)} onToggle={() => mask.toggle(FIELD_PATH)} />
+            </span>
+          </TableHead>
           <TableHead>Took</TableHead>
         </TableRow>
       </TableHeader>
@@ -79,9 +103,9 @@ export function RequestList({
           return (
           <TableRow key={observationKey(row)} className={tone || undefined}>
             <TableCell className="whitespace-nowrap font-mono text-xs">{row.ts.replace(".000Z", "Z")}</TableCell>
-            <TableCell>{row.siteId}</TableCell>
-            {showEdge ? <TableCell>{row.edgeId}</TableCell> : null}
-            <TableCell className="font-mono text-xs">{row.country || "—"}</TableCell>
+            <TableCell>{covered(row.siteId, mask.isHidden(FIELD_SITE))}</TableCell>
+            {showEdge ? <TableCell>{covered(row.edgeId, mask.isHidden(FIELD_EDGE))}</TableCell> : null}
+            <TableCell>{row.country ? <CountryMark code={row.country} /> : "—"}</TableCell>
             {showAddress ? (
               <TableCell className="font-mono text-xs">
                 {row.ip ? (
@@ -103,7 +127,7 @@ export function RequestList({
             </TableCell>
             <TableCell>
               {row.marker ? <Badge variant="destructive" className="mr-2">{row.marker.label}</Badge> : null}
-              <span className="font-mono text-xs">{row.path}</span>
+              <span className="font-mono text-xs">{covered(row.path, mask.isHidden(FIELD_PATH))}</span>
             </TableCell>
             <TableCell className="font-mono text-xs">{row.tookMs ? `${row.tookMs} ms` : "—"}</TableCell>
           </TableRow>

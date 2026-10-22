@@ -131,6 +131,12 @@ const PLACES: [string, string, number, number][] = [
 
 export const COUNTRIES: Place[] = PLACES.map(([code, name, lat, lon]) => ({ code, name, lat, lon }));
 
+const COUNTRY_NAMES = new Map(COUNTRIES.map((place) => [place.code, place.name]));
+
+export function countryName(code: string) {
+  return COUNTRY_NAMES.get(code.trim().toUpperCase()) ?? "";
+}
+
 export function project(lat: number, lon: number, width: number, height: number) {
   return {
     x: ((lon + 180) / 360) * width,

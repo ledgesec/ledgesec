@@ -5,6 +5,7 @@ import { Menu } from "@base-ui/react/menu";
 import { useState } from "react";
 import type { AddressRow } from "@/entities/observation/model";
 import { Badge } from "@/shared/ui/badge";
+import { CountryMark } from "@/shared/ui/country-mark";
 import { Button } from "@/shared/ui/button";
 import { ADDRESS_ACTIONS, requestCount } from "@/widgets/address-panel/actions";
 
@@ -114,7 +115,7 @@ function AddressDetails({
             </div>
             <div>
               <dt className="text-xs text-muted-foreground uppercase">Country</dt>
-              <dd className="mt-1 font-mono">{row.country || "—"}</dd>
+              <dd className="mt-1">{row.country ? <CountryMark code={row.country} /> : "—"}</dd>
             </div>
             <div className="col-span-2">
               <dt className="text-xs text-muted-foreground uppercase">User agent</dt>

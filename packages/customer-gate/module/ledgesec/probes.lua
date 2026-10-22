@@ -52,6 +52,18 @@ local rules = {
   },
   {
     exact = {  },
+    prefixes = {  },
+    suffixes = {  },
+    contains = { "/application.yml", "/application.yaml", "/application.properties", "/application-prod.", "/application-dev.", "/application-test.", "/application-local." },
+  },
+  {
+    exact = {  },
+    prefixes = {  },
+    suffixes = {  },
+    contains = { "/configuration.php" },
+  },
+  {
+    exact = {  },
     prefixes = { "/.docker/" },
     suffixes = { "/.npmrc", "/docker-compose.yml" },
     contains = {  },
@@ -144,7 +156,7 @@ local rules = {
     exact = {  },
     prefixes = {  },
     suffixes = { "/vendor/composer/installed.json" },
-    contains = {  },
+    contains = { "/composer.lock" },
   },
 }
 

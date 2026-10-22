@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Filter, Search } from "lucide-react";
+import { CountryMark } from "@/shared/ui/country-mark";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
-import { ALL, FILTERS, FIND_LIMIT, FIND_WAIT_MS, SEARCH, hrefWithParams } from "@/widgets/table-tools/query";
+import { SelectField } from "@/shared/ui/select";
+import { ALL, COUNTRY, FILTERS, FIND_LIMIT, FIND_WAIT_MS, SEARCH, hrefWithParams } from "@/widgets/table-tools/query";
 
 export function useField(name: string, wait = FIND_WAIT_MS) {
   const pathname = usePathname();
@@ -86,21 +88,20 @@ export function TableTools({
       {open && shown.length > 0 ? (
         <div className="flex flex-wrap gap-3">
           {shown.map((filter) => (
-            <label key={filter.id} className="flex flex-col gap-1 text-xs text-muted-foreground">
+            <label key={filter.id} className="flex min-w-40 flex-col gap-1 text-xs text-muted-foreground">
               {filter.label}
-              <select
-                aria-label={filter.label}
+              <SelectField
+                label={filter.label}
                 value={filter.value}
-                className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm text-foreground"
-                onChange={(event) => filter.onChange(event.target.value)}
-              >
-                <option value="">{ALL}</option>
-                {filter.options.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+                onValueChange={filter.onChange}
+                options={[
+                  { value: "", label: ALL },
+                  ...filter.options.map((option) => ({
+                    value: option,
+                    label: filter.id === COUNTRY ? <CountryMark code={option} /> : option,
+                  })),
+                ]}
+              />
             </label>
           ))}
         </div>

@@ -8,6 +8,7 @@ export const NO_MATCH = "Nothing matches.";
 export const FIELD_SITE = "Site";
 export const FIELD_COUNTRY = "Country";
 export const FIELD_EDGE = "Edge";
+export const FIELD_PATH = "Path";
 export const FIELD_LABEL = "Label";
 
 export const QUERY = "q";

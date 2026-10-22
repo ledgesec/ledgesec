@@ -9,6 +9,7 @@ import { apiError } from "@/shared/lib/api-error";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { SelectField } from "@/shared/ui/select";
 import { Skeleton } from "@/shared/ui/skeleton";
 
 const steps = [
@@ -130,22 +131,17 @@ export function AddHostWizard({ mode, onDone }: { mode: "client" | "admin"; onDo
               {accounts === null && !accountsError ? (
                 <Skeleton className="h-8 w-full" />
               ) : (
-              <select
+              <SelectField
                 name="owner_id"
+                label="Account"
+                placeholder="Choose an account"
                 value={ownerId}
-                onChange={(event) => setOwnerId(event.target.value)}
+                onValueChange={setOwnerId}
                 disabled={accounts === null}
-                aria-invalid={ownerError !== "" || accountsError}
-                aria-describedby="host-owner-error"
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive"
-              >
-                <option value="">Choose an account</option>
-                {accounts?.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.email}
-                  </option>
-                ))}
-              </select>
+                invalid={ownerError !== "" || accountsError}
+                describedBy="host-owner-error"
+                options={(accounts ?? []).map((account) => ({ value: account.id, label: account.email }))}
+              />
               )}
               <span id="host-owner-error" className="absolute top-full left-0 z-10 mt-0.5 text-xs leading-none text-destructive">
                 {accountsError ? "The account list did not answer." : ownerError}

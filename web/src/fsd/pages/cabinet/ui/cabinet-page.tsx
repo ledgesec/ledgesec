@@ -29,6 +29,7 @@ import {
 } from "@/entities/observation/arrive";
 import type { AddressRow, Observation, Summary } from "@/entities/observation/model";
 import { HostsPanel } from "@/features/hosts/ui/hosts-panel";
+import { CountryMark } from "@/shared/ui/country-mark";
 import { ProbeBoard } from "@/fsd/pages/cabinet/ui/probe-board";
 import { SiteBoard } from "@/fsd/pages/cabinet/ui/site-board";
 import { readAddresses, readObservations, readSummary } from "@/features/journal/api";
@@ -676,8 +677,9 @@ function Overview({
             ) : (
               <ul className="mt-3 flex flex-wrap gap-2">
                 {(summary.countries ?? []).map((country) => (
-                  <li key={country.code} className="font-mono text-xs text-cyber-cyan">
-                    {country.code} {country.requests}
+                  <li key={country.code} className="inline-flex items-center gap-2 text-xs text-cyber-cyan">
+                    <CountryMark code={country.code} />
+                    <span className="font-mono">{country.requests}</span>
                   </li>
                 ))}
               </ul>

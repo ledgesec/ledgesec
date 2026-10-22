@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatRps, project } from "./places.ts";
+import { countryName, formatRps, project } from "./places.ts";
 
 test("a country is projected onto the world map", () => {
   const unitedStates = project(39.8, -98.6, 1000, 500);
@@ -9,6 +9,12 @@ test("a country is projected onto the world map", () => {
   const australia = project(-25.3, 133.8, 1000, 500);
   assert.ok(australia.x > unitedStates.x);
   assert.ok(australia.y > unitedStates.y);
+});
+
+test("a country code names the place on the map", () => {
+  assert.equal(countryName("de"), "Germany");
+  assert.equal(countryName("JP"), "Japan");
+  assert.equal(countryName("zz"), "");
 });
 
 test("rps stays two decimals until it is large", () => {

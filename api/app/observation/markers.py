@@ -70,6 +70,20 @@ RULES = (
     ProbeRule("wp-config", "Config file", contains=("/wp-config.php",)),
     ProbeRule("appsettings", "Config file", contains=("/appsettings.",)),
     ProbeRule(
+        "spring",
+        "Config file",
+        contains=(
+            "/application.yml",
+            "/application.yaml",
+            "/application.properties",
+            "/application-prod.",
+            "/application-dev.",
+            "/application-test.",
+            "/application-local.",
+        ),
+    ),
+    ProbeRule("configuration", "Config file", contains=("/configuration.php",)),
+    ProbeRule(
         "docker",
         "Config file",
         prefixes=("/.docker/",),
@@ -104,7 +118,12 @@ RULES = (
         "Debug endpoint",
         suffixes=("/phpinfo.php", "/info.php", "/wp-content/debug.log"),
     ),
-    ProbeRule("composer", "Package manifest", suffixes=("/vendor/composer/installed.json",)),
+    ProbeRule(
+        "composer",
+        "Package manifest",
+        suffixes=("/vendor/composer/installed.json",),
+        contains=("/composer.lock",),
+    ),
 )
 
 
