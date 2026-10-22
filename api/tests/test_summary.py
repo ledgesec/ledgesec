@@ -126,6 +126,60 @@ def test_rates_are_requests_in_the_last_minute_by_domain():
     assert "host_id IN ('f274178d')" in open_sql
 
 
+def test_one_summary_is_shared_for_a_second(monkeypatch):
+    from app.observation.service import (
+        SUMMARY_SHARE_SECONDS,
+        _summary_cache,
+        fetch_summary,
+        share_result,
+    )
+
+    calls = {"n": 0}
+
+    def rows(_host_ids):
+        calls["n"] += 1
+        return [
+            {
+                "path": "/",
+                "hour": "2026-10-21 16:00:00",
+                "edge_id": "eu",
+                "site_id": "demo",
+                "count": 2,
+                "time_ms": 0,
+                "max_ms": 0,
+            }
+        ]
+
+    monkeypatch.setattr("app.observation.service.summary_rows", rows)
+    monkeypatch.setattr("app.observation.service.country_rows", lambda _host_ids: [])
+    monkeypatch.setattr("app.observation.service.open_country_rows", lambda _host_ids: [])
+    monkeypatch.setattr("app.observation.service.rate_rows", lambda _host_ids: [])
+    _summary_cache.clear()
+    first = fetch_summary(["abcd1234"])
+    second = fetch_summary(["abcd1234"])
+    assert calls["n"] == 1
+    assert second["requests"] == first["requests"] == 2
+    assert fetch_summary(None)["requests"] == 2
+    assert calls["n"] == 2
+
+    seen = {"n": 0}
+
+    def compute():
+        seen["n"] += 1
+        return {"n": seen["n"]}
+
+    assert share_result("fresh", compute, now=0)["n"] == 1
+    assert share_result("fresh", compute, now=SUMMARY_SHARE_SECONDS - 0.01)["n"] == 1
+    assert share_result("fresh", compute, now=SUMMARY_SHARE_SECONDS)["n"] == 2
+
+    def fail():
+        raise RuntimeError("down")
+
+    with pytest.raises(RuntimeError):
+        share_result("miss", fail, now=0)
+    assert share_result("miss", compute, now=0)["n"] == 3
+
+
 def test_a_clickhouse_query_is_posted(monkeypatch):
     seen = {}
 

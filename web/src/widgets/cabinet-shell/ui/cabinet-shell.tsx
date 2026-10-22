@@ -5,7 +5,10 @@ import { ChevronLeft, ChevronRight, Globe, LayoutDashboard, LogOut, Radio, ScanS
 import Link from "next/link";
 import {
   ADDRESSES,
+  ALL_PROBES,
   HOSTS,
+  MARKERS,
+  MARKERS_TITLE,
   OVERVIEW,
   PROBES,
   REQUESTS,
@@ -92,9 +95,13 @@ export function CabinetShell({
           <p className="truncate font-mono text-xs text-cyber-cyan">{email}</p>
         </header>
         <nav className="flex gap-2 overflow-x-auto border-b border-cyber-cyan/10 px-4 py-3 lg:hidden">
-          {nav.map((item) => (
-            <SectionLink key={item.id} host={host} mode={mode} item={item} active={section === item.id} pulse={pulse} />
-          ))}
+          {nav.map((item) =>
+            item.id === PROBES && mode === ADMIN ? (
+              <ProbeChildren key={item.id} host={host} mode={mode} section={section} />
+            ) : (
+              <SectionLink key={item.id} host={host} mode={mode} item={item} active={section === item.id} pulse={pulse} />
+            ),
+          )}
           <Button variant="ghost" size="sm" pending={leaving} onClick={onSignOut}>
             Sign out
           </Button>
@@ -143,10 +150,81 @@ function Nav({
           </div>
         ) : null}
       </div>
-      {nav.map((item) => (
-        <SectionLink key={item.id} host={host} mode={mode} item={item} active={section === item.id} pulse={pulse} collapsed={collapsed} />
-      ))}
+      {nav.map((item) =>
+        item.id === PROBES ? (
+          <ProbeGroup key={item.id} host={host} mode={mode} item={item} section={section} pulse={pulse} collapsed={collapsed} />
+        ) : (
+          <SectionLink key={item.id} host={host} mode={mode} item={item} active={section === item.id} pulse={pulse} collapsed={collapsed} />
+        ),
+      )}
     </nav>
+  );
+}
+
+function ProbeGroup({
+  host,
+  mode,
+  item,
+  section,
+  pulse,
+  collapsed,
+}: {
+  host: string;
+  mode: CabinetMode;
+  item: (typeof items)[number];
+  section: CabinetSection;
+  pulse: CabinetPulse | null;
+  collapsed: boolean;
+}) {
+  const open = section === PROBES || section === MARKERS;
+  const Icon = item.icon;
+  if (mode !== ADMIN || collapsed) {
+    return <SectionLink host={host} mode={mode} item={item} active={open} pulse={pulse} collapsed={collapsed} />;
+  }
+  return (
+    <div>
+      <div className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-white/45">
+        <Icon className={`size-5 shrink-0 ${open ? "text-cyber-cyan" : "text-white/45"}`} />
+        <span className="flex-1 text-left">{item.label}</span>
+        <ItemMark item={item} active={false} pulse={pulse} />
+      </div>
+      <ProbeChildren host={host} mode={mode} section={section} nested />
+    </div>
+  );
+}
+
+function ProbeChildren({
+  host,
+  mode,
+  section,
+  nested = false,
+}: {
+  host: string;
+  mode: CabinetMode;
+  section: CabinetSection;
+  nested?: boolean;
+}) {
+  const links = [
+    { id: PROBES, label: ALL_PROBES },
+    { id: MARKERS, label: MARKERS_TITLE },
+  ] as const;
+  return (
+    <div className={nested ? "ml-8 flex flex-col gap-1" : "contents"}>
+      {links.map((link) => (
+        <Link
+          key={link.id}
+          href={sectionHref(host, mode, link.id)}
+          aria-current={section === link.id ? "page" : undefined}
+          className={`shrink-0 rounded-xl border px-3 py-2 text-sm font-medium transition-all duration-200 ${nested ? "block" : ""} ${
+            section === link.id
+              ? "border-cyber-cyan/50 bg-cyber-cyan/10 text-white"
+              : "border-transparent text-white/45 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          {link.label}
+        </Link>
+      ))}
+    </div>
   );
 }
 

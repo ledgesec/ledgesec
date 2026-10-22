@@ -5,6 +5,7 @@ import {
   ADDRESSES,
   HOSTS,
   OVERVIEW,
+  MARKERS,
   PROBES,
   REQUESTS,
   cabinetRewrite,
@@ -21,6 +22,8 @@ test("a cabinet tab is a path under the local root and a tail on the public host
   assert.equal(sectionHref("dash.ledgesec.com", CLIENT, OVERVIEW), "/");
   assert.equal(sectionHref("dash.ledgesec.com", CLIENT, REQUESTS), "/requests");
   assert.equal(sectionHref("admin.ledgesec.com", ADMIN, HOSTS), "/hosts");
+  assert.equal(sectionHref("localhost:44733", ADMIN, MARKERS), "/admin/probes/markers");
+  assert.equal(sectionHref("admin.ledgesec.com", ADMIN, MARKERS), "/probes/markers");
   assert.equal(requestHref("localhost:44733", CLIENT, "", "/.env"), "/dashboard/requests?path=%2F.env");
   assert.equal(requestHref("dash.ledgesec.com", CLIENT, "203.0.113.10", ""), "/requests?q=203.0.113.10");
   assert.equal(
@@ -35,6 +38,11 @@ test("the open path is the tab, and a client has no addresses tab", () => {
   assert.equal(sectionOfPath("/probes", CLIENT), PROBES);
   assert.equal(sectionOfPath("/", ADMIN), OVERVIEW);
   assert.equal(sectionOfPath("/admin/addresses", ADMIN), ADDRESSES);
+  assert.equal(sectionOfPath("/admin/probes/markers", ADMIN), MARKERS);
+  assert.equal(sectionOfPath("/probes/markers", ADMIN), MARKERS);
+  assert.equal(sectionOfPath("/dashboard/probes/markers", CLIENT), OVERVIEW);
+  assert.equal(sectionFromParts(["probes", "markers"], ADMIN), MARKERS);
+  assert.equal(sectionFromParts(["probes", "markers"], CLIENT), null);
   assert.equal(sectionFromParts(["addresses"], CLIENT), null);
   assert.equal(sectionFromParts(["overview"], CLIENT), null);
   assert.equal(sectionFromParts(undefined, CLIENT), OVERVIEW);
@@ -47,6 +55,9 @@ test("the public host rewrites a tab onto the cabinet route and leaves the site 
   assert.equal(cabinetRewrite("client", "/pricing"), "/dashboard");
   assert.equal(cabinetRewrite("client", "/api/v1/observations"), null);
   assert.equal(cabinetRewrite("admin", "/addresses"), "/admin/addresses");
+  assert.equal(cabinetRewrite("admin", "/probes/markers"), "/admin/probes/markers");
+  assert.equal(cabinetRewrite("admin", "/admin/probes/markers"), null);
+  assert.equal(cabinetRewrite("client", "/probes/markers"), "/dashboard");
   assert.equal(cabinetRewrite("admin", "/"), "/admin");
   assert.equal(cabinetRewrite("site", "/blog"), null);
 });

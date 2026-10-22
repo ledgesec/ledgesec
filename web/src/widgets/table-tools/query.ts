@@ -50,6 +50,14 @@ export type JournalFields = { q: string; site: string; country: string; edge: st
 
 export const BLANK_FIELDS: JournalFields = { q: "", site: "", country: "", edge: "" };
 
+export function requestsAreNarrowed(fields: JournalFields, ip: string, path: string) {
+  return fields.q !== "" || fields.site !== "" || fields.country !== "" || fields.edge !== "" || ip !== "" || path !== "";
+}
+
+export function journalViewKey(section: string, fields: JournalFields, ip: string, path: string) {
+  return [section, fields.q, fields.site, fields.country, fields.edge, ip, path].join("\n");
+}
+
 export function keepRow(needles: string[], query: string, picked: string[], selected: string[]) {
   const needle = query.trim().toLowerCase();
   if (needle !== "" && !needles.some((field) => field.toLowerCase().includes(needle))) return false;

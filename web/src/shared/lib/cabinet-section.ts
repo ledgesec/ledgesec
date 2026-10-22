@@ -3,6 +3,9 @@ import { ADMIN, CLIENT, type CabinetMode } from "./role.ts";
 
 export const OVERVIEW = "overview";
 export const PROBES = "probes";
+export const MARKERS = "markers";
+export const ALL_PROBES = "All probes";
+export const MARKERS_TITLE = "Markers";
 export const REQUESTS = "requests";
 export const ADDRESSES = "addresses";
 export const SITES = "sites";
@@ -16,7 +19,7 @@ const CLIENT_TABS = [PROBES, REQUESTS, SITES, HOSTS] as const;
 const ADMIN_TABS = [PROBES, REQUESTS, ADDRESSES, SITES, HOSTS] as const;
 
 export const CABINET_SECTIONS = [OVERVIEW, PROBES, REQUESTS, ADDRESSES, SITES, HOSTS] as const;
-export type CabinetSection = (typeof CABINET_SECTIONS)[number];
+export type CabinetSection = (typeof CABINET_SECTIONS)[number] | typeof MARKERS;
 
 export function cabinetRoot(mode: CabinetMode): string {
   return mode === ADMIN ? "/admin" : "/dashboard";
@@ -28,6 +31,7 @@ export function tabsFor(mode: CabinetMode): readonly CabinetSection[] {
 
 export function sectionFromParts(parts: string[] | undefined, mode: CabinetMode): CabinetSection | null {
   if (!parts || parts.length === 0) return OVERVIEW;
+  if (parts.length === 2 && parts[0] === PROBES && parts[1] === MARKERS) return mode === ADMIN ? MARKERS : null;
   if (parts.length !== 1) return null;
   const name = parts[0];
   if (!tabsFor(mode).includes(name as CabinetSection)) return null;
@@ -44,6 +48,10 @@ export function sectionOfPath(pathname: string, mode: CabinetMode): CabinetSecti
 export function sectionHref(host: string, mode: CabinetMode, section: CabinetSection): string {
   const home = mode === ADMIN ? adminHref(host) : dashboardHref(host);
   if (section === OVERVIEW) return home;
+  if (section === MARKERS) {
+    const probes = home === "/" ? `/${PROBES}` : `${home}/${PROBES}`;
+    return `${probes}/${MARKERS}`;
+  }
   if (home === "/") return `/${section}`;
   return `${home}/${section}`;
 }
@@ -71,6 +79,7 @@ export function cabinetRewrite(surface: Surface, pathname: string): string | nul
   const root = cabinetRoot(mode);
   if (pathname === root || pathname.startsWith(`${root}/`)) return null;
   const section = sectionFromParts(pathname.split("/").filter(Boolean), mode);
+  if (section === MARKERS) return `${root}/${PROBES}/${MARKERS}`;
   if (section && section !== OVERVIEW) return `${root}/${section}`;
   return root;
 }

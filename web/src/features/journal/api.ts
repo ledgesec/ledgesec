@@ -1,4 +1,5 @@
 import type { AddressRow, Observation, RateSeries, Summary } from "@/entities/observation/model";
+import { shareFlight } from "@/features/journal/flight";
 import { apiError } from "@/shared/lib/api-error";
 import { BLANK_FIELDS, fieldParams, type JournalFields } from "@/widgets/table-tools/query";
 
@@ -55,12 +56,14 @@ export async function readObservations(
   path = "",
   fields: JournalFields = BLANK_FIELDS,
   admin = false,
+  signal?: AbortSignal,
 ): Promise<CursorPage<Observation>> {
   const extra = fieldParams(fields, admin);
   if (ip) extra.ip = ip;
   if (path) extra.path = path;
   const response = await fetch(`/api/v1/observations${cursorQuery(cursor, direction, extra)}`, {
     credentials: "include",
+    signal,
   });
   if (!response.ok) throw new Error(apiError.journal);
   const body = (await response.json()) as { observations: ApiObservation[]; next?: string | null; prev?: string | null };
@@ -86,8 +89,14 @@ export async function readObservations(
   };
 }
 
-export async function readSummary(): Promise<Summary> {
-  const response = await fetch("/api/v1/summary", { credentials: "include" });
+const summarySlot: { current: Promise<Summary> | null } = { current: null };
+
+export function readSummary(signal?: AbortSignal): Promise<Summary> {
+  return shareFlight(summarySlot, () => loadSummary(signal));
+}
+
+async function loadSummary(signal?: AbortSignal): Promise<Summary> {
+  const response = await fetch("/api/v1/summary", { credentials: "include", signal });
   if (!response.ok) throw new Error(apiError.journal);
   const body = (await response.json()) as Summary;
   return {
@@ -110,9 +119,11 @@ export async function readAddresses(
   cursor: string | null = null,
   direction: "next" | "prev" = "next",
   fields: JournalFields = BLANK_FIELDS,
+  signal?: AbortSignal,
 ): Promise<CursorPage<AddressRow>> {
   const response = await fetch(`/api/v1/addresses${cursorQuery(cursor, direction, fieldParams(fields, true))}`, {
     credentials: "include",
+    signal,
   });
   if (response.status === 401) return { rows: [], next: null, prev: null };
   if (!response.ok) throw new Error(apiError.journal);

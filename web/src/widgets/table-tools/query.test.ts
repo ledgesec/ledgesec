@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { BLANK_FIELDS, FIND_LIMIT, FIND_WAIT_MS, QUERY, SITE, choiceList, fieldParams, fieldsFrom, hrefWithParams, keepRow, searchHeld } from "./query.ts";
+import { REQUESTS } from "../../shared/lib/cabinet-section.ts";
+import { BLANK_FIELDS, FIND_LIMIT, FIND_WAIT_MS, QUERY, SITE, choiceList, fieldParams, fieldsFrom, hrefWithParams, journalViewKey, keepRow, requestsAreNarrowed, searchHeld } from "./query.ts";
 
 test("a row stays when the search and filters are empty", () => {
   assert.equal(keepRow(["shop.example", "/pricing"], "", ["shop.example"], [""]), true);
@@ -34,6 +35,16 @@ test("a table query is written into the page address and an empty value is remov
   assert.equal(fieldsFrom(params, true).edge, "eu");
   assert.equal(params.get(QUERY)?.length, FIND_LIMIT);
   assert.equal(params.get(SITE), null);
+});
+
+test("a request search narrows the shared list until the page is left", () => {
+  assert.equal(requestsAreNarrowed(BLANK_FIELDS, "", ""), false);
+  assert.equal(requestsAreNarrowed({ ...BLANK_FIELDS, q: "203.0.113.10" }, "", ""), true);
+  assert.equal(requestsAreNarrowed(BLANK_FIELDS, "203.0.113.10", ""), true);
+  assert.equal(requestsAreNarrowed(BLANK_FIELDS, "", "/.env"), true);
+  const searched = journalViewKey(REQUESTS, { ...BLANK_FIELDS, q: "203.0.113.10" }, "", "");
+  assert.notEqual(searched, journalViewKey(REQUESTS, BLANK_FIELDS, "", ""));
+  assert.equal(searched, journalViewKey(REQUESTS, { ...BLANK_FIELDS, q: "203.0.113.10" }, "", ""));
 });
 
 test("a search holds until the wait commits it, and a filter does not", () => {

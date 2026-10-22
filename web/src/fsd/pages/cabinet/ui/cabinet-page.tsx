@@ -17,7 +17,9 @@ import {
   SITE,
   choiceList,
   fieldsFrom,
+  journalViewKey,
   keepRow,
+  requestsAreNarrowed,
 } from "@/widgets/table-tools/query";
 import { HoldRegion, TableTools, useField } from "@/widgets/table-tools/ui/table-tools";
 import {
@@ -27,11 +29,13 @@ import {
   latestRequests,
   observationKey,
   refreshLabel,
+  refreshWait,
   type RefreshSeconds,
 } from "@/entities/observation/arrive";
 import type { AddressRow, Observation, Summary } from "@/entities/observation/model";
 import { HostsPanel } from "@/features/hosts/ui/hosts-panel";
 import { CountryMark } from "@/shared/ui/country-mark";
+import { MarkerForm } from "@/features/probe-rules/ui/marker-form";
 import { ProbeBoard } from "@/fsd/pages/cabinet/ui/probe-board";
 import { SiteBoard } from "@/fsd/pages/cabinet/ui/site-board";
 import { readAddresses, readObservations, readSummary } from "@/features/journal/api";
@@ -39,7 +43,10 @@ import { readSession, signOut, type SessionUser } from "@/features/sign-in/api";
 import { SignInForm } from "@/features/sign-in/ui/sign-in-form";
 import {
   ADDRESSES,
+  ALL_PROBES,
   HOSTS,
+  MARKERS,
+  MARKERS_TITLE,
   OVERVIEW,
   PROBES,
   REQUEST_IP,
@@ -100,6 +107,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
     if (journal && (section === REQUESTS || (section === ADDRESSES && mode === ADMIN))) setLookupHeld(true);
   }
   const seenRequests = useRef<string[] | null>(null);
+  const keptObservations = useRef<{ key: string; rows: Observation[]; next: string | null; prev: string | null } | null>(null);
   const addressOnFirstPage = useRef(true);
   const observationOnFirstPage = useRef(true);
   const scoped = useRef(false);
@@ -112,6 +120,29 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
   useEffect(() => {
     filterRef.current = { section, addressFilter, pathFilter, fields: tableLookup };
   }, [section, addressFilter, pathFilter, tableLookup]);
+
+  const liveViewKey = useCallback(() => {
+    const view = filterRef.current;
+    const onRequests = view.section === REQUESTS;
+    return journalViewKey(
+      view.section,
+      onRequests ? view.fields : BLANK_FIELDS,
+      onRequests ? (view.addressFilter ?? "") : "",
+      onRequests ? (view.pathFilter ?? "") : "",
+    );
+  }, []);
+
+  const keepObservationPage = useCallback((page: { rows: Observation[]; next: string | null; prev: string | null }, key: string) => {
+    if (key !== liveViewKey()) return;
+    keptObservations.current = { key, rows: page.rows, next: page.next, prev: page.prev };
+    seenRequests.current = page.rows.map(observationKey);
+    setFreshRequests([]);
+    setJournal((current) =>
+      current
+        ? { ...current, observations: page.rows, observationNext: page.next, observationPrev: page.prev }
+        : current,
+    );
+  }, [liveViewKey]);
 
   const accepts = useCallback(
     (next: SessionUser) => (mode === ADMIN ? next.role === ADMIN : next.role === USER),
@@ -130,15 +161,37 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
       const path = view.section === REQUESTS ? (view.pathFilter ?? "") : "";
       const fields = view.section === REQUESTS ? view.fields : BLANK_FIELDS;
       const addresses = mode === ADMIN ? readAddresses() : Promise.resolve(emptyAddressPage);
+      const requested = journalViewKey(view.section, fields, ip, path);
       Promise.all([readSummary(), readObservations(null, "next", ip, path, fields, mode === ADMIN), addresses])
         .then(([summary, observations, addressPage]) => {
-          seenRequests.current = observations.rows.map(observationKey);
-          setFreshRequests([]);
+          const now = liveViewKey();
+          const saved = keptObservations.current;
+          const page = requested === now ? observations : saved && saved.key === now ? saved : null;
+          if (page === null) {
+            setJournal((current) =>
+              current
+                ? { ...current, summary }
+                : {
+                    summary,
+                    observations: [],
+                    observationNext: null,
+                    observationPrev: null,
+                    addresses: addressPage.rows,
+                    addressNext: addressPage.next,
+                    addressPrev: addressPage.prev,
+                  },
+            );
+            return;
+          }
+          if (requested === now) {
+            seenRequests.current = page.rows.map(observationKey);
+            setFreshRequests([]);
+          }
           setJournal({
             summary,
-            observations: observations.rows,
-            observationNext: observations.next,
-            observationPrev: observations.prev,
+            observations: page.rows,
+            observationNext: page.next,
+            observationPrev: page.prev,
             addresses: addressPage.rows,
             addressNext: addressPage.next,
             addressPrev: addressPage.prev,
@@ -146,7 +199,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
         })
         .catch(() => setJournalError(true));
     },
-    [accepts, mode],
+    [accepts, mode, liveViewKey],
   );
 
   useEffect(() => {
@@ -159,11 +212,48 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
 
   useEffect(() => {
     if (phase !== "ready" || refreshSeconds === 0 || section === HOSTS) return;
+    const period = refreshWait(0, refreshSeconds);
+    if (period === null) return;
+    const controller = new AbortController();
+    let timer = 0;
+    const tick = () => {
+      const started = performance.now();
+      readSummary(controller.signal)
+        .then((summary) => {
+          if (controller.signal.aborted) return;
+          setJournal((current) => (current ? { ...current, summary } : current));
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+          setJournalError(true);
+        })
+        .finally(() => {
+          if (controller.signal.aborted) return;
+          const wait = refreshWait(performance.now() - started, refreshSeconds);
+          if (wait === null) return;
+          timer = window.setTimeout(tick, wait);
+        });
+    };
+    timer = window.setTimeout(tick, period);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [phase, refreshSeconds, section]);
+
+  useEffect(() => {
+    if (phase !== "ready" || refreshSeconds === 0 || section === HOSTS) return;
+    const period = refreshWait(0, refreshSeconds);
+    if (period === null) return;
+    const controller = new AbortController();
     const timer = window.setInterval(() => {
+      if (controller.signal.aborted) return;
       const onRequests = section === REQUESTS;
       const refreshObservations = section === OVERVIEW || (onRequests && observationOnFirstPage.current);
       const refreshAddresses =
         mode === ADMIN && addressOnFirstPage.current && section === ADDRESSES;
+      if (!refreshObservations && !refreshAddresses) return;
+      const key = liveViewKey();
       const observations = refreshObservations
         ? readObservations(
             null,
@@ -172,11 +262,21 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
             onRequests ? (pathFilter ?? "") : "",
             onRequests ? tableLookup : BLANK_FIELDS,
             mode === ADMIN,
+            controller.signal,
           )
         : Promise.resolve(null);
-      const addresses = refreshAddresses ? readAddresses(null, "next", tableLookup) : Promise.resolve(null);
-      Promise.all([readSummary(), observations, addresses])
-        .then(([summary, observationPage, addressPage]) => {
+      const addresses = refreshAddresses ? readAddresses(null, "next", tableLookup, controller.signal) : Promise.resolve(null);
+      Promise.all([observations, addresses])
+        .then(([observationPage, addressPage]) => {
+          if (controller.signal.aborted || key !== liveViewKey()) return;
+          if (observationPage) {
+            keptObservations.current = {
+              key,
+              rows: observationPage.rows,
+              next: observationPage.next,
+              prev: observationPage.prev,
+            };
+          }
           if (observationPage) {
             const keys = observationPage.rows.map(observationKey);
             const arrived = arrivedKeys(seenRequests.current, keys);
@@ -192,7 +292,6 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
             if (!current) return current;
             return {
               ...current,
-              summary,
               ...(observationPage
                 ? {
                     observations: observationPage.rows,
@@ -210,9 +309,15 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
             };
           });
         })
-        .catch(() => setJournalError(true));
-    }, refreshSeconds * 1000);
-    return () => window.clearInterval(timer);
+        .catch((error: unknown) => {
+          if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+          setJournalError(true);
+        });
+    }, period);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
   }, [
     phase,
     mode,
@@ -221,54 +326,50 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
     addressFilter,
     pathFilter,
     tableLookup,
+    liveViewKey,
   ]);
 
   useEffect(() => {
     if (phase !== "ready") return;
-    if (section === REQUESTS && (addressFilter || pathFilter)) {
+    if (section === REQUESTS && requestsAreNarrowed(tableLookup, addressFilter ?? "", pathFilter ?? "")) {
       scoped.current = true;
       return;
     }
     if (section === REQUESTS || !scoped.current) return;
     scoped.current = false;
+    const controller = new AbortController();
+    const key = liveViewKey();
     seenRequests.current = null;
-    readObservations(null, "next", "", "", BLANK_FIELDS, mode === ADMIN)
+    readObservations(null, "next", "", "", BLANK_FIELDS, mode === ADMIN, controller.signal)
       .then((page) => {
-        seenRequests.current = page.rows.map(observationKey);
-        setFreshRequests([]);
-        setJournal((current) =>
-          current
-            ? { ...current, observations: page.rows, observationNext: page.next, observationPrev: page.prev }
-            : current,
-        );
+        if (controller.signal.aborted) return;
+        keepObservationPage(page, key);
       })
-      .catch(() => setJournalError(true));
-  }, [phase, section, mode, addressFilter, pathFilter]);
+      .catch((error: unknown) => {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+        setJournalError(true);
+      });
+    return () => controller.abort();
+  }, [phase, section, mode, addressFilter, pathFilter, tableLookup, keepObservationPage, liveViewKey]);
 
   useEffect(() => {
     if (phase !== "ready" || section !== REQUESTS) return;
-    let cancelled = false;
-    readObservations(null, "next", addressFilter ?? "", pathFilter ?? "", tableLookup, mode === ADMIN)
+    const controller = new AbortController();
+    const key = liveViewKey();
+    readObservations(null, "next", addressFilter ?? "", pathFilter ?? "", tableLookup, mode === ADMIN, controller.signal)
       .then((page) => {
-        if (cancelled) return;
-        seenRequests.current = page.rows.map(observationKey);
-        setFreshRequests([]);
-        setJournal((current) =>
-          current
-            ? { ...current, observations: page.rows, observationNext: page.next, observationPrev: page.prev }
-            : current,
-        );
+        if (controller.signal.aborted) return;
+        keepObservationPage(page, key);
       })
-      .catch(() => {
-        if (!cancelled) setJournalError(true);
+      .catch((error: unknown) => {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+        setJournalError(true);
       })
       .finally(() => {
-        if (!cancelled) setLookupHeld(false);
+        if (!controller.signal.aborted) setLookupHeld(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [phase, section, mode, addressFilter, pathFilter, tableLookup]);
+    return () => controller.abort();
+  }, [phase, section, mode, addressFilter, pathFilter, tableLookup, keepObservationPage, liveViewKey]);
 
   useEffect(() => {
     if (phase !== "ready" || section !== ADDRESSES || mode !== ADMIN) return;
@@ -372,21 +473,6 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
     );
   }
 
-  function keepObservations(page: { rows: Observation[]; next: string | null; prev: string | null }) {
-    seenRequests.current = page.rows.map(observationKey);
-    setFreshRequests([]);
-    setJournal((current) =>
-      current
-        ? {
-            ...current,
-            observations: page.rows,
-            observationNext: page.next,
-            observationPrev: page.prev,
-          }
-        : current,
-    );
-  }
-
   function keepAddresses(page: { rows: AddressRow[]; next: string | null; prev: string | null }) {
     setJournal((current) =>
       current
@@ -418,8 +504,9 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
   function turnObservations(direction: "next" | "prev") {
     const cursor = direction === "next" ? journal?.observationNext : journal?.observationPrev;
     if (!cursor) return;
+    const key = liveViewKey();
     readObservations(cursor, direction, addressFilter ?? "", pathFilter ?? "", tableLookup, mode === ADMIN)
-      .then(keepObservations)
+      .then((page) => keepObservationPage(page, key))
       .catch(() => setJournalError(true));
   }
 
@@ -462,7 +549,12 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
           refreshSeconds={refreshSeconds}
         />
       ) : null}
-      {(journal || !journalError) && section === PROBES ? <ProbeBoard summary={journal?.summary ?? null} onPath={openPath} admin={mode === ADMIN} /> : null}
+      {(journal || !journalError) && section === PROBES ? <ProbeBoard summary={journal?.summary ?? null} onPath={openPath} /> : null}
+      {section === MARKERS && mode === ADMIN ? (
+        <div className="mt-6">
+          <MarkerForm />
+        </div>
+      ) : null}
       {(journal || !journalError) && section === SITES ? (
         <SiteBoard summary={journal?.summary ?? null} showEdges={mode === ADMIN} onPath={openPath} />
       ) : null}
@@ -607,7 +699,8 @@ function JournalTools({
 function titleOf(section: CabinetSection) {
   if (section === ADDRESSES) return "Addresses";
   if (section === REQUESTS) return "Requests";
-  if (section === PROBES) return "Probes";
+  if (section === PROBES) return ALL_PROBES;
+  if (section === MARKERS) return MARKERS_TITLE;
   if (section === SITES) return "Sites";
   if (section === HOSTS) return "Hosts";
   return "Overview";
@@ -616,6 +709,7 @@ function titleOf(section: CabinetSection) {
 function blurbOf(section: CabinetSection) {
   if (section === HOSTS) return "Add a host once. Sites on it appear from the requests, and you can turn one off.";
   if (section === PROBES) return "Paths the marker calls a probe. Open a path to see those requests.";
+  if (section === MARKERS) return "A new pattern is matched when the journal is read. The stored request stays as it was.";
   if (section === SITES) return "Each site is a Host header. Counts are the last 24 hours. The rate is the last minute.";
   if (section === ADDRESSES) return "Addresses in the journal. The request still goes through.";
   if (section === REQUESTS) return "Newest first. A new row starts green, then settles.";
@@ -807,7 +901,7 @@ function Overview({
           <h2 className="text-sm font-medium">Probes</h2>
           {summary && summary.markers.length > 0 ? (
             <Link href={probesHref} className="text-sm text-cyber-cyan">
-              All probes
+              {ALL_PROBES}
             </Link>
           ) : null}
         </div>

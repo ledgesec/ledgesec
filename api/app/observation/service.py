@@ -1,3 +1,7 @@
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+
 from app.codes import Code
 from app.observation.addresses import address_panel
 from app.observation.geo import noted_country, tally_countries
@@ -26,6 +30,30 @@ from app.observation.repository import (
 )
 from app.observation.summary import CountRow, summarize, with_rates
 
+SUMMARY_SHARE_SECONDS = 1
+SUMMARY_READS = 4
+
+_summary_cache: dict[str, tuple[float, dict]] = {}
+_summary_lock = threading.Lock()
+
+
+def summary_key(host_ids: list[str] | None) -> str:
+    if host_ids is None:
+        return ""
+    return "\n".join(host_ids)
+
+
+def share_result(key: str, compute, now: float | None = None) -> dict:
+    stamp = time.monotonic() if now is None else now
+    with _summary_lock:
+        hit = _summary_cache.get(key)
+        if hit is not None and stamp - hit[0] < SUMMARY_SHARE_SECONDS:
+            return hit[1]
+        body = compute()
+        finished = time.monotonic() if now is None else now
+        _summary_cache[key] = (finished, body)
+        return body
+
 
 def show_ip(ip: str | None) -> str:
     text = str(ip or "")
@@ -36,21 +64,32 @@ def show_ip(ip: str | None) -> str:
     return text
 
 
+def _count_row(row: dict) -> CountRow:
+    return CountRow(
+        path=str(row.get("path") or ""),
+        hour=str(row.get("hour") or ""),
+        edge_id=str(row.get("edge_id") or ""),
+        site_id=str(row.get("site_id") or ""),
+        count=int(row.get("count") or 0),
+        time_ms=int(row.get("time_ms") or 0),
+        max_ms=int(row.get("max_ms") or 0),
+    )
+
+
+def _build_summary(host_ids: list[str] | None) -> dict:
+    with ThreadPoolExecutor(max_workers=SUMMARY_READS) as pool:
+        grouped = pool.submit(summary_rows, host_ids)
+        countries = pool.submit(country_rows, host_ids)
+        pending = pool.submit(open_country_rows, host_ids)
+        rates = pool.submit(rate_rows, host_ids)
+        rows = [_count_row(row) for row in grouped.result()]
+        places = tally_countries(countries.result(), pending.result())
+        found = rates.result()
+    return with_rates(summarize(rows), found, places)
+
+
 def fetch_summary(host_ids: list[str] | None = None) -> dict:
-    rows = [
-        CountRow(
-            path=str(row.get("path") or ""),
-            hour=str(row.get("hour") or ""),
-            edge_id=str(row.get("edge_id") or ""),
-            site_id=str(row.get("site_id") or ""),
-            count=int(row.get("count") or 0),
-            time_ms=int(row.get("time_ms") or 0),
-            max_ms=int(row.get("max_ms") or 0),
-        )
-        for row in summary_rows(host_ids)
-    ]
-    places = tally_countries(country_rows(host_ids), open_country_rows(host_ids))
-    return with_rates(summarize(rows), rate_rows(host_ids), places)
+    return share_result(summary_key(host_ids), lambda: _build_summary(host_ids))
 
 
 def fetch_rates(host_ids: list[str] | None, window: str) -> dict:

@@ -4,6 +4,8 @@ export type RefreshSeconds = (typeof REFRESH_SECONDS)[number];
 
 export const DEFAULT_REFRESH_SECONDS: RefreshSeconds = 1;
 
+export const REFRESH_MS = 1000;
+
 export const LATEST_REQUESTS = 30;
 
 export function latestRequests<T>(rows: T[]) {
@@ -12,6 +14,11 @@ export function latestRequests<T>(rows: T[]) {
 
 export function refreshLabel(seconds: RefreshSeconds) {
   return seconds === 0 ? "Never" : `${seconds}s`;
+}
+
+export function refreshWait(elapsedMs: number, seconds: RefreshSeconds) {
+  if (seconds === 0) return null;
+  return Math.max(0, seconds * REFRESH_MS - elapsedMs);
 }
 
 export function observationKey(row: { ts: string; edgeId: string; siteId: string; path: string }) {

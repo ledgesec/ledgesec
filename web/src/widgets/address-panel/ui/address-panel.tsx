@@ -5,7 +5,6 @@ import { ColumnCell, ColumnHead, ColumnSettings, ColumnSkeleton, ColumnTable, us
 import { CountryMark } from "@/shared/ui/country-mark";
 import { TableBody, TableHeader, TableRow } from "@/shared/ui/table";
 import {
-  COLUMN_ACTIONS,
   COLUMN_ADDRESS,
   COLUMN_EDGES,
   COLUMN_LAST_PROBE,
@@ -54,7 +53,6 @@ export function AddressPanel({
           { id: "sites", label: COLUMN_SITES, width: 180 },
           { id: "seen", label: COLUMN_LAST_SEEN, width: 168 },
         ]),
-    { id: "actions", label: COLUMN_ACTIONS, width: 112 },
   ];
   const layout = useColumnLayout(TABLE_ADDRESSES, specs);
   const basis = (id: string) => specs.find((column) => column.id === id)?.width ?? 0;
@@ -88,15 +86,6 @@ export function AddressPanel({
               {layout.open("seen") ? (
                 <ColumnHead label={COLUMN_LAST_SEEN} width={layout.size("seen")} basis={basis("seen")} onResize={(width) => layout.resize("seen", width)} />
               ) : null}
-              {layout.open("actions") ? (
-                <ColumnHead
-                  label={COLUMN_ACTIONS}
-                  width={layout.size("actions")}
-                  basis={basis("actions")}
-                  className="text-right"
-                  onResize={(width) => layout.resize("actions", width)}
-                />
-              ) : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -107,12 +96,15 @@ export function AddressPanel({
                   <TableRow key={row.ip} className={row.probes ? "bg-probe-surface text-probe-foreground" : undefined}>
                     {layout.open("address") ? (
                       <ColumnCell width={layout.size("address")} className="font-mono text-xs">
-                        {row.ip}
-                        {row.country ? (
-                          <span className="ml-2 align-middle">
-                            <CountryMark code={row.country} />
-                          </span>
-                        ) : null}
+                        <AddressActions row={row} onRequests={onRequests} />
+                        <div className="mt-1">
+                          {row.ip}
+                          {row.country ? (
+                            <span className="ml-2 align-middle">
+                              <CountryMark code={row.country} />
+                            </span>
+                          ) : null}
+                        </div>
                       </ColumnCell>
                     ) : null}
                     {layout.open("requests") ? (
@@ -136,11 +128,6 @@ export function AddressPanel({
                     {layout.open("seen") ? (
                       <ColumnCell width={layout.size("seen")} className="font-mono text-xs">
                         {row.lastTs ? row.lastTs.replace(".000000Z", "Z") : "—"}
-                      </ColumnCell>
-                    ) : null}
-                    {layout.open("actions") ? (
-                      <ColumnCell width={layout.size("actions")} className="text-right">
-                        <AddressActions row={row} onRequests={onRequests} />
                       </ColumnCell>
                     ) : null}
                   </TableRow>

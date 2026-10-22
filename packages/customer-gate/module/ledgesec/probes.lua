@@ -6,7 +6,7 @@ local rules = {
     exact = { "/.env" },
     prefixes = { "/.env.", "/.env/", "/.env-" },
     suffixes = { "/.env", "/.env~", "/sendgrid.env", "/config.env", "/env.js", "/env.txt", "/env-config.js", "/credentials.env", "/secrets.env", "/secret.env", "/.env0", "/.env1", "/.env2", "/.env3", "/.env4", "/.env5", "/.env6", "/.env7", "/.env8", "/.env9", "/.env_copy", "/_environment" },
-    contains = { "/.env.", "/.env/" },
+    contains = { "/.env.", "/.env/", "/.env_" },
   },
   {
     exact = {  },
@@ -24,13 +24,13 @@ local rules = {
     exact = { "/.git" },
     prefixes = { "/.git/" },
     suffixes = { "/.git-credentials", "/.gitmodules" },
-    contains = {  },
+    contains = { "/.git/" },
   },
   {
     exact = { "/.svn" },
     prefixes = { "/.svn/" },
     suffixes = {  },
-    contains = {  },
+    contains = { "/.svn/" },
   },
   {
     exact = { "/.aws" },
@@ -66,13 +66,19 @@ local rules = {
     exact = {  },
     prefixes = {  },
     suffixes = {  },
+    contains = { "/config/database.php", "/config/app.php" },
+  },
+  {
+    exact = {  },
+    prefixes = {  },
+    suffixes = {  },
     contains = { "/config.php.bak", "/config.php.old", "/config.php.save", "/config.php.swp", "/config.php~" },
   },
   {
     exact = {  },
     prefixes = { "/.docker/" },
     suffixes = { "/.npmrc", "/docker-compose.yml" },
-    contains = {  },
+    contains = { "/docker-compose." },
   },
   {
     exact = {  },
@@ -148,8 +154,8 @@ local rules = {
   },
   {
     exact = { "/mcp.json" },
-    prefixes = { "/.claude/", "/.continue/" },
-    suffixes = { "/mcp.json" },
+    prefixes = { "/.claude/", "/.continue/", "/.vscode/" },
+    suffixes = { "/mcp.json", "/sftp.json", "/sftp-config.json" },
     contains = {  },
   },
   {

@@ -122,7 +122,7 @@ export function ColumnSettings({
         </Menu.Trigger>
         <Menu.Portal>
           <Menu.Positioner align="end" sideOffset={6} className="z-50">
-            <Menu.Popup className="min-w-48 rounded-lg border border-cyber-cyan/20 bg-cyber-navy p-1 text-sm text-foreground shadow-xl outline-none">
+            <Menu.Popup className="min-w-48 rounded-lg border border-cyber-cyan/20 bg-cyber-navy p-1 text-sm text-slate-50 shadow-xl outline-none">
               {labels.map((column) => {
                 const pref = columns.find((item) => item.id === column.id);
                 const hidden = pref?.hidden === true;
@@ -132,7 +132,7 @@ export function ColumnSettings({
                     closeOnClick={false}
                     disabled={locked === column.id}
                     label={column.label}
-                    className="flex items-center gap-2 rounded-md px-2 py-1.5 outline-none data-disabled:opacity-50 data-highlighted:bg-cyber-cyan/10"
+                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-slate-50 outline-none data-disabled:opacity-50 data-highlighted:bg-cyber-cyan/15"
                     onClick={() => onToggle(column.id)}
                   >
                     <span className="flex size-4 items-center justify-center text-cyber-cyan">

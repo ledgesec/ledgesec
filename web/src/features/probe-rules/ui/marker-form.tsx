@@ -39,8 +39,7 @@ export function MarkerForm() {
 
   return (
     <section className="glass-panel p-4">
-      <h2 className="text-sm font-medium">Markers</h2>
-      <p className="mt-1 text-xs text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         A new pattern is matched when the journal is read. The stored request stays as it was.
       </p>
       <form
