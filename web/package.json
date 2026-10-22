@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --test version.test.ts src/entities/observation/marker.test.ts src/shared/lib/hosts.test.ts src/features/sign-in/schema.test.ts src/features/hosts/schema.test.ts src/features/hosts/arrival.test.ts"
+    "test": "node --experimental-strip-types --test version.test.ts src/entities/observation/marker.test.ts src/shared/lib/hosts.test.ts src/features/sign-in/schema.test.ts src/features/hosts/schema.test.ts src/features/hosts/arrival.test.ts src/widgets/world-map/places.test.ts src/widgets/address-panel/actions.test.ts src/entities/observation/arrive.test.ts src/fsd/pages/home/overview.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

@@ -20,7 +20,8 @@ const steps = [
 const methods = [
   { id: "nginx", title: "Nginx", detail: "OpenResty module on the server.", available: true },
   { id: "dns", title: "DNS", detail: "Send traffic through the edge.", available: false },
-  { id: "linux", title: "Linux daemon", detail: "A process reads the nginx log. Nginx itself stays as it is.", available: true },
+  { id: "linux", title: "Linux daemon", detail: "A process reads the whole nginx log. Nginx itself stays as it is.", available: true },
+  { id: "coolify", title: "Coolify", detail: "One process reads the whole proxy log. A missing name is kept.", available: true },
   { id: "apache", title: "Apache", detail: "Apache module on the server.", available: false },
 ] as const;
 
@@ -173,7 +174,7 @@ export function AddHostWizard({ mode, onDone }: { mode: "client" | "admin"; onDo
         <div className="relative mt-8 grid gap-6">
           <div>
             <h2 className="text-2xl font-bold">How should it report?</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Nginx and the Linux daemon are available. DNS and Apache stay in the list until they can be turned on.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Nginx, the Linux daemon, and Coolify are available. DNS and Apache stay in the list until they can be turned on.</p>
           </div>
           <fieldset>
             <legend className="sr-only">Connection</legend>

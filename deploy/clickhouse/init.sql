@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS ledgesec.events (
     had_session UInt8,
     client_class LowCardinality(String),
     ja4 String,
-    sampled UInt8
+    sampled UInt8,
+    request_time_ms UInt32
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(ts)

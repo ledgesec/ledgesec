@@ -5,7 +5,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.observation.ingest import accept_batch, batch_note, to_ipv6
+from app.observation.clickhouse import event_columns
+from app.observation.ingest import accept_batch, batch_note, request_time_ms, to_ipv6
 from app.observation.service import show_ip
 
 
@@ -107,6 +108,26 @@ def test_a_line_without_a_hostname_is_not_a_site(monkeypatch):
     now_ms = int(datetime.now(UTC).timestamp() * 1000)
     body = batch([{"ts": now_ms, "path": "/", "host": ""}])
     assert accept_batch(mac_for("secret", body), body) == []
+
+
+def test_request_time_is_stored_in_milliseconds(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_INGEST_SECRET", "secret")
+    now_ms = int(datetime.now(UTC).timestamp() * 1000)
+    body = batch(
+        [{"ts": now_ms, "path": "/pricing", "host": "shop.example", "ip": "203.0.113.10", "request_time_ms": 42}]
+    )
+    row = json.loads(accept_batch(mac_for("secret", body), body)[0])
+    assert row["request_time_ms"] == 42
+    assert row["path"] == "/pricing"
+    missing = batch([{"ts": now_ms, "path": "/", "host": "shop.example"}])
+    assert json.loads(accept_batch(mac_for("secret", missing), missing)[0])["request_time_ms"] == 0
+    assert request_time_ms("slow") == 0
+    assert request_time_ms(-5) == 0
+    assert request_time_ms(True) == 0
+    assert request_time_ms(10**20) == 4_294_967_295
+    columns = event_columns()
+    assert "request_time_ms UInt32 DEFAULT 0" in columns
+    assert "ADD COLUMN IF NOT EXISTS" in columns
 
 
 def test_country_comes_from_the_local_lookup(monkeypatch):

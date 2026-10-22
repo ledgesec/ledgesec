@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Radio, ScrollText, Server, ShieldAlert } from "lucide-react";
+import { ChevronLeft, ChevronRight, Globe, LayoutDashboard, LogOut, Radio, ScanSearch, ScrollText, Server, ShieldAlert } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 
-export type CabinetSection = "overview" | "requests" | "addresses" | "hosts";
+export type CabinetSection = "overview" | "probes" | "requests" | "addresses" | "sites" | "hosts";
 
 const items: { id: CabinetSection; label: string; icon: typeof LayoutDashboard; admin?: boolean }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "hosts", label: "Hosts", icon: Server },
+  { id: "probes", label: "Probes", icon: ScanSearch },
   { id: "requests", label: "Requests", icon: ScrollText },
   { id: "addresses", label: "Addresses", icon: Radio, admin: true },
+  { id: "sites", label: "Sites", icon: Globe },
+  { id: "hosts", label: "Hosts", icon: Server },
 ];
 
 export function CabinetShell({

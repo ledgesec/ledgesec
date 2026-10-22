@@ -9,6 +9,7 @@ def test_panel_groups_an_address_and_keeps_the_first_probe():
             "site_id": "demo",
             "ts": "2026-10-21T16:00:00.000000Z",
             "path": "/.env",
+            "country": "de",
             "marker": {"code": "env", "label": "Secret file"},
         },
         {
@@ -37,3 +38,6 @@ def test_panel_groups_an_address_and_keeps_the_first_probe():
     assert panel[0]["probe_label"] == "Secret file"
     assert panel[0]["sites"] == ["demo", "other"]
     assert panel[0]["last_ts"] == "2026-10-21T16:00:00.000000Z"
+    assert panel[0]["country"] == "DE"
+    assert panel[0]["paths"] == ["/.env", "/pricing"]
+    assert panel[0]["requests"] == 2

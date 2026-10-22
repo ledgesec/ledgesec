@@ -86,6 +86,8 @@ def test_a_blank_label_and_an_unavailable_collector_are_refused():
         create_host(Mem(), "Shop", "dns", "user1")
     row = create_host(Mem(), "Shop", "linux", "user1")
     assert row["collector"] == "linux"
+    row = create_host(Mem(), "Shop", "coolify", "user1")
+    assert row["collector"] == "coolify"
     with pytest.raises(ValueError, match="unavailable"):
         create_host(Mem(), "Shop", "apache", "user1")
 

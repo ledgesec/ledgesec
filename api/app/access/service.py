@@ -32,8 +32,8 @@ from app.codes import Code
 from app.ids import EMAIL, SITE_ID, site_name
 from app.observation.ingest import ingest_secret
 
-AVAILABLE = {"nginx", "linux"}
-COLLECTORS = {"nginx", "dns", "linux", "apache"}
+AVAILABLE = {"nginx", "linux", "coolify"}
+COLLECTORS = {"nginx", "dns", "linux", "apache", "coolify"}
 
 
 class Unscoped(Exception):
@@ -97,12 +97,13 @@ def list_sites(db: Session) -> list[dict]:
     ]
 
 
-def journal_scope(actor: Actor) -> str | None:
+def journal_host_ids(db: Session, actor: Actor) -> list[str] | None:
     if actor.role == "admin":
         return None
-    if not SITE_ID.match(actor.site_id or ""):
+    found = [row.id for row in list_host_rows(db, actor.id) if isinstance(row, Host) and SITE_ID.match(row.id)]
+    if not found:
         raise Unscoped()
-    return actor.site_id
+    return found
 
 
 def host_owner(actor: Actor) -> str | None:

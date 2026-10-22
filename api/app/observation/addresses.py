@@ -14,6 +14,8 @@ def address_panel(rows: list[dict]) -> list[dict]:
                 "sites": [],
                 "probe_path": "",
                 "probe_label": "",
+                "country": "",
+                "paths": [],
             },
         )
         edge = row.get("edge_id") or "module"
@@ -21,6 +23,12 @@ def address_panel(rows: list[dict]) -> list[dict]:
         site = row.get("site_id") or ""
         if site and site not in item["sites"]:
             item["sites"].append(site)
+        country = str(row.get("country") or "").upper()
+        if item["country"] == "" and len(country) == 2 and country.isalpha():
+            item["country"] = country
+        path = str(row.get("path") or "")
+        if path and path not in item["paths"] and len(item["paths"]) < 5:
+            item["paths"].append(path)
         marker = row.get("marker")
         if marker:
             item["probes"] += 1
@@ -28,5 +36,7 @@ def address_panel(rows: list[dict]) -> list[dict]:
                 item["probe_path"] = row["path"]
                 item["probe_label"] = marker["label"]
     panel = list(grouped.values())
-    panel.sort(key=lambda item: (item["probes"], sum(item["edges"].values())), reverse=True)
-    return panel[:80]
+    for item in panel:
+        item["requests"] = sum(item["edges"].values())
+    panel.sort(key=lambda item: (item["probes"], item["requests"], item["ip"]), reverse=True)
+    return panel

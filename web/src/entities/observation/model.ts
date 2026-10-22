@@ -7,6 +7,7 @@ export type Observation = {
   path: string;
   ip: string;
   country: string;
+  tookMs?: number;
   marker: Marker | null;
 };
 
@@ -17,9 +18,14 @@ export type Summary = {
   requests: number;
   probes: number;
   sites: number;
-  edges: { id: string; requests: number }[];
+  edges: { id: string; requests: number; probes?: number }[];
   hours: HourCount[];
   markers: { path: string; label: string; count: number }[];
+  by_site: { name: string; requests: number; probes: number }[];
+  slow: { path: string; label: string; requests: number; avg_ms: number; max_ms: number }[];
+  rps: number;
+  domains: { name: string; requests: number; rps: number }[];
+  countries: { code: string; requests: number }[];
 };
 
 export type AddressRow = {
@@ -29,6 +35,10 @@ export type AddressRow = {
   probePath: string;
   probeLabel: string;
   sites: string[];
+  country: string;
+  paths: string[];
+  lastTs: string;
+  requests?: number;
 };
 
 export function pathMarker(path: string): Marker | null {
@@ -69,9 +79,14 @@ export function addressesFrom(rows: Observation[]): AddressRow[] {
       probePath: "",
       probeLabel: "",
       sites: [],
+      country: "",
+      paths: [],
+      lastTs: row.ts,
     };
     item.edges[row.edgeId] = (item.edges[row.edgeId] ?? 0) + 1;
     if (!item.sites.includes(row.siteId)) item.sites.push(row.siteId);
+    if (!item.country && row.country.length === 2) item.country = row.country.toUpperCase();
+    if (row.path && !item.paths.includes(row.path) && item.paths.length < 5) item.paths.push(row.path);
     if (row.marker) {
       item.probes += 1;
       if (!item.probePath) {

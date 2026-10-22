@@ -5,7 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.access.service import (
     Unscoped,
     filter_monitored,
-    journal_scope,
+    journal_host_ids,
     remember_agent,
     shows_ip,
 )
@@ -14,9 +14,13 @@ from app.errors import ApiError
 from app.http.body import read_body
 from app.http.deps import ActorDep, AdminDep, Db
 from app.http.schemas import AddressesOut, ObservationOut, StoredOut, SummaryOut
-from app.observation.addresses import address_panel
 from app.observation.ingest import INGEST_BODY_LIMIT, accept_batch, batch_note
-from app.observation.service import fetch_events, fetch_summary, insert_observations
+from app.observation.service import (
+    fetch_address_page,
+    fetch_event_page,
+    fetch_summary,
+    insert_observations,
+)
 from app.observation.summary import summarize
 
 router = APIRouter()
@@ -30,40 +34,52 @@ def dump_observation(row: dict, *, include_ip: bool) -> dict:
 
 
 @router.get("/v1/observations")
-def observations(actor: ActorDep) -> JSONResponse:
+def observations(
+    actor: ActorDep, db: Db, cursor: str = "", direction: str = "next", ip: str = "", path: str = ""
+) -> JSONResponse:
     try:
-        site_id = journal_scope(actor)
+        host_ids = journal_host_ids(db, actor)
     except Unscoped:
-        return JSONResponse({"observations": []})
+        return JSONResponse({"observations": [], "next": None, "prev": None})
     try:
-        rows = fetch_events(40, site_id)
+        rows, nxt, prev = fetch_event_page(
+            host_ids, cursor or None, direction, ip if shows_ip(actor) else None, path or None
+        )
+    except ValueError as exc:
+        raise ApiError(400, str(exc)) from exc
     except Exception as exc:
         raise ApiError(503, Code.CLICKHOUSE_DOWN) from exc
     include_ip = shows_ip(actor)
-    body = {"observations": [dump_observation(row, include_ip=include_ip) for row in rows]}
+    body = {
+        "observations": [dump_observation(row, include_ip=include_ip) for row in rows],
+        "next": nxt,
+        "prev": prev,
+    }
     return JSONResponse(body)
 
 
 @router.get("/v1/summary")
-def summary(actor: ActorDep) -> JSONResponse:
+def summary(actor: ActorDep, db: Db) -> JSONResponse:
     try:
-        site_id = journal_scope(actor)
+        host_ids = journal_host_ids(db, actor)
     except Unscoped:
         return JSONResponse(SummaryOut.model_validate(summarize([])).model_dump())
     try:
-        body = SummaryOut.model_validate(fetch_summary(site_id)).model_dump()
+        body = SummaryOut.model_validate(fetch_summary(host_ids)).model_dump()
     except Exception as exc:
         raise ApiError(503, Code.CLICKHOUSE_DOWN) from exc
     return JSONResponse(body)
 
 
 @router.get("/v1/addresses")
-def addresses(_actor: AdminDep) -> JSONResponse:
+def addresses(_actor: AdminDep, cursor: str = "", direction: str = "next") -> JSONResponse:
     try:
-        rows = fetch_events(1000)
+        rows, nxt, prev = fetch_address_page(cursor or None, direction)
+    except ValueError as exc:
+        raise ApiError(400, str(exc)) from exc
     except Exception as exc:
         raise ApiError(503, Code.CLICKHOUSE_DOWN) from exc
-    body = AddressesOut.model_validate({"addresses": address_panel(rows)}).model_dump()
+    body = AddressesOut.model_validate({"addresses": rows, "next": nxt, "prev": prev}).model_dump()
     return JSONResponse(body)
 
 

@@ -1,6 +1,7 @@
 class Code:
     BAD_ADMIN = "bad_admin"
     BAD_BODY = "bad_body"
+    BAD_CURSOR = "bad_cursor"
     BAD_EDGE = "bad_edge"
     BAD_EVENTS = "bad_events"
     BAD_HOST = "bad_host"

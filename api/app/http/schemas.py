@@ -40,6 +40,7 @@ class ObservationOut(BaseModel):
     reason: str
     ip: str | None = None
     country: str = ""
+    request_time_ms: int = 0
     marker: MarkerOut | None = None
 
 
@@ -51,15 +52,35 @@ class AddressOut(BaseModel):
     sites: list[str]
     probe_path: str
     probe_label: str
+    country: str = ""
+    paths: list[str] = []
+    requests: int = 0
 
 
 class AddressesOut(BaseModel):
     addresses: list[AddressOut]
+    next: str | None = None
+    prev: str | None = None
 
 
 class EdgeCount(BaseModel):
     id: str
     requests: int
+    probes: int = 0
+
+
+class SiteCount(BaseModel):
+    name: str
+    requests: int
+    probes: int
+
+
+class SlowPath(BaseModel):
+    path: str
+    label: str = ""
+    requests: int
+    avg_ms: int
+    max_ms: int
 
 
 class HourCount(BaseModel):
@@ -74,6 +95,17 @@ class MarkerCount(BaseModel):
     count: int
 
 
+class DomainRate(BaseModel):
+    name: str
+    requests: int
+    rps: float
+
+
+class CountryCount(BaseModel):
+    code: str
+    requests: int
+
+
 class SummaryOut(BaseModel):
     window: Literal["24h"]
     requests: int
@@ -82,6 +114,11 @@ class SummaryOut(BaseModel):
     edges: list[EdgeCount]
     hours: list[HourCount]
     markers: list[MarkerCount]
+    by_site: list[SiteCount] = []
+    slow: list[SlowPath] = []
+    rps: float = 0
+    domains: list[DomainRate] = []
+    countries: list[CountryCount] = []
 
 
 class HealthOut(BaseModel):

@@ -99,8 +99,21 @@ def event_lines(body: bytes) -> list[str]:
                     "client_class": "",
                     "ja4": "",
                     "sampled": sampled,
+                    "request_time_ms": request_time_ms(event.get("request_time_ms")),
                 },
                 separators=(",", ":"),
             )
         )
     return lines
+
+
+def request_time_ms(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        return 0
+    try:
+        number = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return 0
+    if number < 0:
+        return 0
+    return min(number, 4_294_967_295)

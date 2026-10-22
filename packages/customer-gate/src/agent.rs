@@ -1,5 +1,7 @@
-//! The Linux daemon reads one nginx log and posts the same batch as the Lua module.
-//! The line is `$msec $remote_addr $host "$request" $status`. Query, body, and Cookie are dropped.
+//! The Linux daemon posts the same batch as the Lua module.
+//! An nginx line is `$msec $remote_addr $host "$request" $status $request_time`.
+//! A line without `$request_time` is still a hit, with no duration.
+//! A Coolify proxy line is Traefik's JSON access log. Query, body, Cookie, and Referer are dropped.
 
 use crate::hash::hmac_sha256;
 
@@ -21,10 +23,18 @@ pub struct Hit {
     pub method: String,
     pub path: String,
     pub status: u16,
+    pub request_time_ms: u32,
 }
 
 pub fn parse_line(line: &str) -> Option<Hit> {
     let line = line.trim();
+    if line.starts_with('{') {
+        return parse_proxy(line);
+    }
+    parse_nginx(line)
+}
+
+fn parse_nginx(line: &str) -> Option<Hit> {
     if line.is_empty() || line.starts_with('#') {
         return None;
     }
@@ -32,7 +42,7 @@ pub fn parse_line(line: &str) -> Option<Hit> {
     let ts_ms = parse_msec(parts.next()?)?;
     let ip = clean_ip(parts.next()?);
     let host = clean_host(parts.next()?)?;
-    let (method, path, status) = split_request(parts.next()?)?;
+    let (method, path, status, request_time_ms) = split_request(parts.next()?)?;
     let path = clean_path(&path)?;
     if path.starts_with("/.well-known/acme-challenge/") {
         return None;
@@ -44,6 +54,7 @@ pub fn parse_line(line: &str) -> Option<Hit> {
         method,
         path,
         status,
+        request_time_ms,
     })
 }
 
@@ -59,8 +70,13 @@ pub fn admit(status: u16, percent: u8, roll: u8) -> Option<bool> {
 }
 
 pub fn event_json(hit: &Hit, sampled: bool) -> String {
+    let duration = if hit.request_time_ms > 0 {
+        format!(r#","request_time_ms":{}"#, hit.request_time_ms)
+    } else {
+        String::new()
+    };
     format!(
-        "{{\"ts\":{},\"method\":\"{}\",\"path\":\"{}\",\"route_group\":\"{}\",\"status\":{},\"ip\":\"{}\",\"host\":\"{}\",\"sampled\":{}}}",
+        "{{\"ts\":{},\"method\":\"{}\",\"path\":\"{}\",\"route_group\":\"{}\",\"status\":{},\"ip\":\"{}\",\"host\":\"{}\",\"sampled\":{}{}}}",
         hit.ts_ms,
         esc(&hit.method),
         esc(&hit.path),
@@ -69,6 +85,7 @@ pub fn event_json(hit: &Hit, sampled: bool) -> String {
         esc(&hit.ip),
         esc(&hit.host),
         if sampled { "true" } else { "false" },
+        duration,
     )
 }
 
@@ -93,6 +110,78 @@ pub fn ingest_url(value: &str) -> String {
     }
     let value = value.trim_end_matches('/');
     format!("{value}/api/v1/observations")
+}
+
+fn parse_proxy(line: &str) -> Option<Hit> {
+    let value: serde_json::Value = serde_json::from_str(line).ok()?;
+    let host = clean_host(value.get("RequestHost")?.as_str()?)?;
+    if host == "localhost" || host == "127.0.0.1" {
+        return None;
+    }
+    let path = clean_path(value.get("RequestPath")?.as_str()?)?;
+    if path.starts_with("/.well-known/acme-challenge/") {
+        return None;
+    }
+    let method = method_name(
+        value
+            .get("RequestMethod")
+            .and_then(|item| item.as_str())
+            .unwrap_or("GET"),
+    );
+    let status = u16::try_from(value.get("DownstreamStatus")?.as_u64()?).ok()?;
+    let ip = clean_ip(value.get("ClientHost").and_then(|item| item.as_str()).unwrap_or(""));
+    let ts_ms = parse_rfc3339(value.get("StartUTC")?.as_str()?)?;
+    Some(Hit {
+        ts_ms,
+        ip,
+        host,
+        method,
+        path,
+        status,
+        request_time_ms: duration_ms(value.get("Duration")),
+    })
+}
+
+fn duration_ms(value: Option<&serde_json::Value>) -> u32 {
+    let nanos = value.and_then(serde_json::Value::as_u64).unwrap_or(0);
+    u32::try_from(nanos / 1_000_000).unwrap_or(u32::MAX)
+}
+
+fn parse_rfc3339(text: &str) -> Option<u64> {
+    let text = text.trim().trim_end_matches('Z');
+    let (date, time) = text.split_once('T')?;
+    let mut date = date.split('-');
+    let year: i32 = date.next()?.parse().ok()?;
+    let month: u32 = date.next()?.parse().ok()?;
+    let day: u32 = date.next()?.parse().ok()?;
+    let (clock, frac) = time.split_once('.').unwrap_or((time, "0"));
+    let mut clock = clock.split(':');
+    let hour: u32 = clock.next()?.parse().ok()?;
+    let minute: u32 = clock.next()?.parse().ok()?;
+    let second: u32 = clock.next()?.parse().ok()?;
+    if hour > 23 || minute > 59 || second > 59 {
+        return None;
+    }
+    let digits: String = frac.chars().take(3).filter(|c| c.is_ascii_digit()).collect();
+    let millis: u64 = format!("{digits:0<3}").parse().ok()?;
+    let days = days_from_civil(year, month, day)?;
+    let secs = days.saturating_mul(86_400) + i64::from(hour * 3600 + minute * 60 + second);
+    Some(u64::try_from(secs).ok()?.saturating_mul(1000).saturating_add(millis))
+}
+
+fn days_from_civil(mut year: i32, month: u32, day: u32) -> Option<i64> {
+    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return None;
+    }
+    if month <= 2 {
+        year -= 1;
+    }
+    let era = if year >= 0 { year } else { year - 399 } / 400;
+    let yoe = u64::try_from(year - era * 400).ok()?;
+    let shifted = i32::try_from(month).ok()? + if month > 2 { -3 } else { 9 };
+    let doy = (153 * shifted + 2) / 5 + i32::try_from(day).ok()? - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + u64::try_from(doy).ok()?;
+    Some(i64::from(era) * 146_097 + i64::try_from(doe).ok()? - 719_468)
 }
 
 fn parse_msec(text: &str) -> Option<u64> {
@@ -134,7 +223,7 @@ fn clean_path(value: &str) -> Option<String> {
     Some(path)
 }
 
-fn split_request(rest: &str) -> Option<(String, String, u16)> {
+fn split_request(rest: &str) -> Option<(String, String, u16, u32)> {
     let rest = rest.trim();
     let start = rest.find('"')?;
     let end = rest.rfind('"')?;
@@ -142,11 +231,27 @@ fn split_request(rest: &str) -> Option<(String, String, u16)> {
         return None;
     }
     let request = &rest[start + 1..end];
-    let status: u16 = rest[end + 1..].trim().parse().ok()?;
+    let mut tail = rest[end + 1..].split_whitespace();
+    let status: u16 = tail.next()?.parse().ok()?;
+    let request_time_ms = tail.next().map(request_time_ms).unwrap_or(0);
     let mut parts = request.split_whitespace();
     let method = method_name(parts.next()?);
     let target = parts.next()?.to_string();
-    Some((method, target, status))
+    Some((method, target, status, request_time_ms))
+}
+
+fn request_time_ms(text: &str) -> u32 {
+    let (sec, frac) = text.split_once('.').unwrap_or((text, ""));
+    let Ok(sec) = sec.parse::<u64>() else {
+        return 0;
+    };
+    let digits: String = frac.chars().filter(|c| c.is_ascii_digit()).take(3).collect();
+    let millis: u64 = if digits.is_empty() {
+        0
+    } else {
+        format!("{digits:0<3}").parse().unwrap_or(0)
+    };
+    u32::try_from(sec.saturating_mul(1000).saturating_add(millis)).unwrap_or(u32::MAX)
 }
 
 fn method_name(value: &str) -> String {
@@ -203,6 +308,14 @@ mod tests {
         assert_eq!(hit.method, "GET");
         assert_eq!(hit.path, "/pricing");
         assert_eq!(hit.status, 200);
+        assert_eq!(hit.request_time_ms, 0);
+        let timed = parse_line(
+            r#"1761141841.123 203.0.113.10 vipkeys.net "GET /pricing HTTP/1.1" 200 0.042"#,
+        )
+        .unwrap();
+        assert_eq!(timed.request_time_ms, 42);
+        assert!(event_json(&timed, false).contains(r#""request_time_ms":42"#));
+        assert!(!event_json(&hit, false).contains("request_time_ms"));
     }
 
     #[test]
@@ -211,6 +324,33 @@ mod tests {
         assert_eq!(admit(404, 1, 100), Some(false));
         assert_eq!(admit(200, 1, 50), None);
         assert_eq!(admit(200, 1, 1), Some(true));
+    }
+
+    #[test]
+    fn a_proxy_line_keeps_the_host_and_drops_the_query() {
+        let hit = parse_line(
+            r#"{"ClientHost":"203.0.113.10","DownstreamStatus":404,"Duration":42000000,"RequestHost":"Shop.Example","RequestMethod":"GET","RequestPath":"/pricing?q=1","StartUTC":"2026-10-21T15:43:05.08506422Z","request_Referer":"https://secret.example/a","request_User-Agent":"secret-agent"}"#,
+        )
+        .unwrap();
+        assert_eq!(hit.ts_ms, 1_792_597_385_085);
+        assert_eq!(hit.ip, "203.0.113.10");
+        assert_eq!(hit.host, "shop.example");
+        assert_eq!(hit.method, "GET");
+        assert_eq!(hit.path, "/pricing");
+        assert_eq!(hit.status, 404);
+        assert_eq!(hit.request_time_ms, 42);
+        let event = event_json(&hit, false);
+        assert!(!event.contains("secret"));
+        assert!(!event.contains('?'));
+        assert!(parse_line(r#"{"RequestPath":"/ping","DownstreamStatus":200}"#).is_none());
+        assert!(parse_line(
+            r#"{"ClientHost":"203.0.113.10","DownstreamStatus":200,"RequestHost":"localhost","RequestMethod":"GET","RequestPath":"/ping","StartUTC":"2026-10-21T15:43:05Z"}"#
+        )
+        .is_none());
+        assert!(parse_line(
+            r#"{"ClientHost":"203.0.113.10","DownstreamStatus":200,"RequestHost":"shop.example","RequestMethod":"GET","RequestPath":"/.well-known/acme-challenge/token","StartUTC":"2026-10-21T15:43:05Z"}"#
+        )
+        .is_none());
     }
 
     #[test]

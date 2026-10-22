@@ -5,11 +5,12 @@ from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 
-from app.access.models import User
+from app.access.models import Host, User
 from app.access.passwords import hash_password
 from app.access.sessions import sign_session
 from app.db import get_db
 from app.main import create_app
+from app.observation.addresses import address_panel
 from app.observation.summary import summarize
 
 SECRET = "session-secret"
@@ -20,6 +21,7 @@ class Holder:
     def __init__(self):
         self.user = None
         self.fail = False
+        self.hosts = None
 
 
 class FakeDb:
@@ -46,6 +48,8 @@ class FakeDb:
         return self
 
     def all(self):
+        if self.holder.hosts is not None:
+            return self.holder.hosts
         if self.holder.user is None:
             return []
         return [self.holder.user]
@@ -171,15 +175,18 @@ def test_site_user_observations_hide_the_address(monkeypatch):
     holder = Holder()
     holder.user = admin()
     holder.user.role = "user"
-    holder.user.site_id = "demo"
+    holder.user.site_id = ""
+    holder.hosts = [Host(id="f274178d", label="web7.pro", collector="linux", owner_id=USER_ID)]
     seen = {}
 
-    def fake(limit, site_id=None):
-        seen["limit"] = limit
-        seen["site"] = site_id
-        return [event_row()]
+    def fake(host_ids=None, cursor=None, direction="next", ip=None):
+        seen["hosts"] = host_ids
+        seen["cursor"] = cursor
+        seen["direction"] = direction
+        seen["ip"] = ip
+        return [event_row()], None, None
 
-    monkeypatch.setattr("app.http.observation.fetch_events", fake)
+    monkeypatch.setattr("app.http.observation.fetch_event_page", fake)
     client = client_for(holder)
     client.cookies.set("ledgesec_session", sign_session(USER_ID))
     response = client.get("/v1/observations")
@@ -187,24 +194,26 @@ def test_site_user_observations_hide_the_address(monkeypatch):
     row = response.json()["observations"][0]
     assert "ip" not in row
     assert row["marker"]["code"] == "env"
-    assert seen == {"limit": 40, "site": "demo"}
+    assert response.json()["next"] is None
+    assert response.json()["prev"] is None
+    assert seen == {"hosts": ["f274178d"], "cursor": None, "direction": "next", "ip": None}
 
 
-def test_user_without_a_site_gets_an_empty_journal(monkeypatch):
+def test_user_without_a_host_gets_an_empty_journal(monkeypatch):
     monkeypatch.setenv("LEDGESEC_SESSION_SECRET", SECRET)
     holder = Holder()
     holder.user = admin()
     holder.user.role = "user"
     holder.user.site_id = ""
 
-    def fail(_limit, _site_id=None):
+    def fail(*_args, **_kwargs):
         raise AssertionError("journal should not be read")
 
-    monkeypatch.setattr("app.http.observation.fetch_events", fail)
+    monkeypatch.setattr("app.http.observation.fetch_event_page", fail)
     client = client_for(holder)
     client.cookies.set("ledgesec_session", sign_session(USER_ID))
     response = client.get("/v1/observations")
-    assert response.json() == {"observations": []}
+    assert response.json() == {"observations": [], "next": None, "prev": None}
 
 
 def test_admin_summary_and_addresses(monkeypatch):
@@ -212,7 +221,10 @@ def test_admin_summary_and_addresses(monkeypatch):
     holder = Holder()
     holder.user = admin()
     monkeypatch.setattr("app.http.observation.fetch_summary", lambda site_id=None: summarize([]))
-    monkeypatch.setattr("app.http.observation.fetch_events", lambda limit, site_id=None: [event_row()])
+    monkeypatch.setattr(
+        "app.http.observation.fetch_address_page",
+        lambda cursor=None, direction="next": (address_panel([event_row()]), "next-cursor", None),
+    )
     client = client_for(holder)
     client.cookies.set("ledgesec_session", sign_session(USER_ID))
     summary = client.get("/v1/summary")
@@ -223,6 +235,8 @@ def test_admin_summary_and_addresses(monkeypatch):
     assert addresses.status_code == 200
     assert addresses.json()["addresses"][0]["ip"] == "203.0.113.10"
     assert addresses.json()["addresses"][0]["probe_label"] == "Secret file"
+    assert addresses.json()["next"] == "next-cursor"
+    assert addresses.json()["prev"] is None
 
 
 def test_site_user_cannot_list_addresses(monkeypatch):
