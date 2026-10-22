@@ -23,6 +23,7 @@ class Host(Base):
     id: Mapped[str] = mapped_column(Text, primary_key=True)
     label: Mapped[str] = mapped_column(Text)
     collector: Mapped[str] = mapped_column(Text)
+    owner_id: Mapped[str | None] = mapped_column(Text, ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

@@ -27,7 +27,7 @@ def public_host(row: Host, sites: list[HostSite]) -> dict:
     }
 
 
-def create_host(db: Session, label: str, collector: str) -> dict:
+def create_host(db: Session, label: str, collector: str, owner_id: str) -> dict:
     label = clean_label(label)
     if collector not in COLLECTORS:
         raise ValueError("bad_host")
@@ -39,16 +39,19 @@ def create_host(db: Session, label: str, collector: str) -> dict:
         if db.scalar(select(Host.id).where(Host.id == candidate)) is None:
             ident = candidate
             break
-    if ident == "":
+    if ident == "" or not SITE_ID.match(owner_id):
         raise ValueError("bad_host")
-    row = Host(id=ident, label=label, collector=collector)
+    row = Host(id=ident, label=label, collector=collector, owner_id=owner_id)
     db.add(row)
     db.commit()
     return public_host(row, [])
 
 
-def list_hosts(db: Session) -> list[dict]:
-    hosts = db.scalars(select(Host).order_by(Host.label, Host.id)).all()
+def list_hosts(db: Session, owner_id: str | None = None) -> list[dict]:
+    query = select(Host).order_by(Host.label, Host.id)
+    if owner_id is not None:
+        query = query.where(Host.owner_id == owner_id)
+    hosts = db.scalars(query).all()
     sites = db.scalars(select(HostSite).order_by(HostSite.name)).all()
     grouped: dict[str, list[HostSite]] = {row.id: [] for row in hosts}
     for site in sites:
@@ -57,10 +60,14 @@ def list_hosts(db: Session) -> list[dict]:
     return [public_host(row, grouped[row.id]) for row in hosts]
 
 
-def set_site_enabled(db: Session, host_id: str, name: str, enabled: bool) -> None:
+def set_site_enabled(db: Session, host_id: str, name: str, enabled: bool, owner_id: str | None = None) -> None:
     name = site_name(name)
     if not SITE_ID.match(host_id) or name == "":
         raise ValueError("bad_site")
+    if owner_id is not None:
+        owned = db.scalar(select(Host.id).where(Host.id == host_id, Host.owner_id == owner_id))
+        if owned is None:
+            raise LookupError("missing")
     row = db.scalar(select(HostSite).where(HostSite.host_id == host_id, HostSite.name == name))
     if row is None:
         raise LookupError("missing")

@@ -311,7 +311,12 @@ def test_admin_adds_an_nginx_host(monkeypatch):
     monkeypatch.setenv("LEDGESEC_SESSION_SECRET", SECRET)
     monkeypatch.setattr(
         "app.http.access.create_host",
-        lambda _db, label, collector: {"id": "abcd1234", "label": label.strip(), "collector": collector, "sites": []},
+        lambda _db, label, collector, _owner: {
+            "id": "abcd1234",
+            "label": label.strip(),
+            "collector": collector,
+            "sites": [],
+        },
     )
     holder = Holder()
     holder.user = admin()
@@ -324,8 +329,15 @@ def test_admin_adds_an_nginx_host(monkeypatch):
     assert response.json()["sites"] == []
 
 
-def test_a_site_user_cannot_add_a_host(monkeypatch):
+def test_a_site_user_adds_their_own_host(monkeypatch):
     monkeypatch.setenv("LEDGESEC_SESSION_SECRET", SECRET)
+    seen = {}
+
+    def create(_db, label, collector, owner_id):
+        seen["owner"] = owner_id
+        return {"id": "abcd1234", "label": label, "collector": collector, "sites": []}
+
+    monkeypatch.setattr("app.http.access.create_host", create)
     holder = Holder()
     holder.user = admin()
     holder.user.role = "user"
@@ -333,8 +345,8 @@ def test_a_site_user_cannot_add_a_host(monkeypatch):
     client = client_for(holder)
     client.cookies.set("ledgesec_session", sign_session(USER_ID))
     response = client.post("/v1/hosts", json={"label": "Shop", "collector": "nginx"})
-    assert response.status_code == 401
-    assert response.json() == {"error": "sign_in"}
+    assert response.status_code == 201
+    assert seen["owner"] == USER_ID
 
 
 def test_apache_is_not_available_yet(monkeypatch):

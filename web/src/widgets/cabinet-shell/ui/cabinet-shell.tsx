@@ -8,7 +8,7 @@ export type CabinetSection = "overview" | "requests" | "addresses" | "hosts";
 
 const items: { id: CabinetSection; label: string; icon: typeof LayoutDashboard; admin?: boolean }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "hosts", label: "Hosts", icon: Server, admin: true },
+  { id: "hosts", label: "Hosts", icon: Server },
   { id: "requests", label: "Requests", icon: ScrollText },
   { id: "addresses", label: "Addresses", icon: Radio, admin: true },
 ];

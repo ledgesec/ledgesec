@@ -36,9 +36,10 @@ def test_site_name_is_the_hostname_without_a_port():
 
 def test_create_host_keeps_nginx_and_a_short_id():
     db = Mem()
-    row = create_host(db, "  Shop   EU  ", "nginx")
+    row = create_host(db, "  Shop   EU  ", "nginx", "user1")
     assert row["label"] == "Shop EU"
     assert row["collector"] == "nginx"
+    assert db.rows[0].owner_id == "user1"
     assert row["sites"] == []
     assert SITE_ID.match(row["id"])
     assert db.committed
@@ -47,13 +48,13 @@ def test_create_host_keeps_nginx_and_a_short_id():
 
 def test_a_blank_label_and_an_unavailable_collector_are_refused():
     with pytest.raises(ValueError, match="bad_host"):
-        create_host(Mem(), "   ", "nginx")
+        create_host(Mem(), "   ", "nginx", "user1")
     with pytest.raises(ValueError, match="unavailable"):
-        create_host(Mem(), "Shop", "dns")
+        create_host(Mem(), "Shop", "dns", "user1")
     with pytest.raises(ValueError, match="unavailable"):
-        create_host(Mem(), "Shop", "linux")
+        create_host(Mem(), "Shop", "linux", "user1")
     with pytest.raises(ValueError, match="unavailable"):
-        create_host(Mem(), "Shop", "apache")
+        create_host(Mem(), "Shop", "apache", "user1")
 
 
 def test_a_new_site_is_kept_and_a_disabled_one_is_dropped():

@@ -88,23 +88,29 @@ async def add_user(request: Request, db: Db, _actor: AdminDep) -> JSONResponse:
     return JSONResponse(OkOut(ok=True).model_dump(), status_code=201)
 
 
+def host_owner(actor) -> str | None:
+    if actor.role == "admin":
+        return None
+    return actor.id
+
+
 @router.get("/v1/hosts")
-def hosts(db: Db, _actor: AdminDep) -> JSONResponse:
+def hosts(db: Db, actor: ActorDep) -> JSONResponse:
     try:
-        rows = list_hosts(db)
+        rows = list_hosts(db, host_owner(actor))
     except Exception as exc:
         raise ApiError(503, "postgres_down") from exc
     return JSONResponse(HostsOut.model_validate({"hosts": rows}).model_dump())
 
 
 @router.post("/v1/hosts")
-async def add_host(request: Request, db: Db, _actor: AdminDep) -> JSONResponse:
+async def add_host(request: Request, db: Db, actor: ActorDep) -> JSONResponse:
     try:
         parsed = NewHost.model_validate_json(await read_body(request))
     except Exception as exc:
         raise ApiError(400, "bad_body") from exc
     try:
-        row = create_host(db, parsed.label, parsed.collector)
+        row = create_host(db, parsed.label, parsed.collector, actor.id)
     except ValueError as exc:
         code = str(exc)
         raise ApiError(400, code if code in {"bad_host", "unavailable"} else "rejected") from exc
@@ -114,13 +120,13 @@ async def add_host(request: Request, db: Db, _actor: AdminDep) -> JSONResponse:
 
 
 @router.post("/v1/host-sites")
-async def monitor_site(request: Request, db: Db, _actor: AdminDep) -> JSONResponse:
+async def monitor_site(request: Request, db: Db, actor: ActorDep) -> JSONResponse:
     try:
         parsed = SiteMonitor.model_validate_json(await read_body(request))
     except Exception as exc:
         raise ApiError(400, "bad_body") from exc
     try:
-        set_site_enabled(db, parsed.host_id, parsed.name, parsed.enabled)
+        set_site_enabled(db, parsed.host_id, parsed.name, parsed.enabled, host_owner(actor))
     except LookupError as exc:
         raise ApiError(404, "not_found") from exc
     except ValueError as exc:
