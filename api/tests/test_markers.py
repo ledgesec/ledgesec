@@ -22,6 +22,8 @@ from app.observation.markers import classify
         ("/env.js", "env", "Secret file"),
         ("/env.txt", "env", "Secret file"),
         ("/env-config.js", "env", "Secret file"),
+        ("/.aws/.env", "env", "Secret file"),
+        ("/.docker/laravel/app/.env", "env", "Secret file"),
         ("/.environment", None, None),
         ("/secrets.json", "secrets", "Secret file"),
         ("/auth.json", "secrets", "Secret file"),
