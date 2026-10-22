@@ -61,13 +61,12 @@
 
   @keyframes request-arrive {
     from {
-      background-color: rgb(0 255 136 / 0.45);
+      background-color: #1a5c3a;
     }
     to {
       background-color: transparent;
     }
   }
-
 }
 
 :root {

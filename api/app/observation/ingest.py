@@ -79,31 +79,29 @@ def event_lines(body: bytes) -> list[str]:
             continue
         stamp = when.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
         sampled = 1 if event.get("sampled") is True else 0
-        lines.append(
-            json.dumps(
-                {
-                    "ts": stamp,
-                    "site_id": name,
-                    "host_id": site_id,
-                    "edge_id": edge_id,
-                    "decision": "allow",
-                    "reason": "observe",
-                    "policy_version": 1,
-                    "snapshot_gen": 0,
-                    "snapshot_age_ms": 0,
-                    "route_group": route_group,
-                    "path": path,
-                    "ip": to_ipv6(str(event.get("ip") or "")),
-                    "country": country_of(str(event.get("ip") or "")),
-                    "had_session": 0,
-                    "client_class": "",
-                    "ja4": "",
-                    "sampled": sampled,
-                    "request_time_ms": request_time_ms(event.get("request_time_ms")),
-                },
-                separators=(",", ":"),
-            )
-        )
+        stored = {
+            "ts": stamp,
+            "site_id": name,
+            "host_id": site_id,
+            "edge_id": edge_id,
+            "decision": "allow",
+            "reason": "observe",
+            "policy_version": 1,
+            "snapshot_gen": 0,
+            "snapshot_age_ms": 0,
+            "route_group": route_group,
+            "path": path,
+            "ip": to_ipv6(str(event.get("ip") or "")),
+            "country": country_of(str(event.get("ip") or "")),
+            "had_session": 0,
+            "client_class": "",
+            "ja4": "",
+            "sampled": sampled,
+            "request_time_ms": request_time_ms(event.get("request_time_ms")),
+        }
+        if event.get("routed") is False:
+            stored["routed"] = False
+        lines.append(json.dumps(stored, separators=(",", ":")))
     return lines
 
 

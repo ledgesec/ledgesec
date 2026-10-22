@@ -4,6 +4,12 @@ export type RefreshSeconds = (typeof REFRESH_SECONDS)[number];
 
 export const DEFAULT_REFRESH_SECONDS: RefreshSeconds = 1;
 
+export const LATEST_REQUESTS = 30;
+
+export function latestRequests<T>(rows: T[]) {
+  return rows.slice(0, LATEST_REQUESTS);
+}
+
 export function refreshLabel(seconds: RefreshSeconds) {
   return seconds === 0 ? "Never" : `${seconds}s`;
 }

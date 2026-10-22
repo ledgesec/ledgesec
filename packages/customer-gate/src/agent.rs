@@ -24,6 +24,7 @@ pub struct Hit {
     pub path: String,
     pub status: u16,
     pub request_time_ms: u32,
+    pub routed: bool,
 }
 
 pub fn parse_line(line: &str) -> Option<Hit> {
@@ -55,6 +56,7 @@ fn parse_nginx(line: &str) -> Option<Hit> {
         path,
         status,
         request_time_ms,
+        routed: true,
     })
 }
 
@@ -75,8 +77,9 @@ pub fn event_json(hit: &Hit, sampled: bool) -> String {
     } else {
         String::new()
     };
+    let routed = if hit.routed { String::new() } else { r#","routed":false"#.to_string() };
     format!(
-        "{{\"ts\":{},\"method\":\"{}\",\"path\":\"{}\",\"route_group\":\"{}\",\"status\":{},\"ip\":\"{}\",\"host\":\"{}\",\"sampled\":{}{}}}",
+        "{{\"ts\":{},\"method\":\"{}\",\"path\":\"{}\",\"route_group\":\"{}\",\"status\":{},\"ip\":\"{}\",\"host\":\"{}\",\"sampled\":{}{}{}}}",
         hit.ts_ms,
         esc(&hit.method),
         esc(&hit.path),
@@ -86,6 +89,7 @@ pub fn event_json(hit: &Hit, sampled: bool) -> String {
         esc(&hit.host),
         if sampled { "true" } else { "false" },
         duration,
+        routed,
     )
 }
 
@@ -118,6 +122,8 @@ fn parse_proxy(line: &str) -> Option<Hit> {
     if host == "localhost" || host == "127.0.0.1" {
         return None;
     }
+    let router = value.get("RouterName").and_then(|item| item.as_str()).unwrap_or("");
+    let routed = application_router(router);
     let path = clean_path(value.get("RequestPath")?.as_str()?)?;
     if path.starts_with("/.well-known/acme-challenge/") {
         return None;
@@ -139,7 +145,13 @@ fn parse_proxy(line: &str) -> Option<Hit> {
         path,
         status,
         request_time_ms: duration_ms(value.get("Duration")),
+        routed,
     })
+}
+
+fn application_router(name: &str) -> bool {
+    let name = name.trim();
+    !name.is_empty() && name != "catchall@file"
 }
 
 fn duration_ms(value: Option<&serde_json::Value>) -> u32 {
@@ -329,7 +341,7 @@ mod tests {
     #[test]
     fn a_proxy_line_keeps_the_host_and_drops_the_query() {
         let hit = parse_line(
-            r#"{"ClientHost":"203.0.113.10","DownstreamStatus":404,"Duration":42000000,"RequestHost":"Shop.Example","RequestMethod":"GET","RequestPath":"/pricing?q=1","StartUTC":"2026-10-21T15:43:05.08506422Z","request_Referer":"https://secret.example/a","request_User-Agent":"secret-agent"}"#,
+            r#"{"ClientHost":"203.0.113.10","DownstreamStatus":404,"Duration":42000000,"RequestHost":"Shop.Example","RequestMethod":"GET","RequestPath":"/pricing?q=1","RouterName":"https-0-app@docker","StartUTC":"2026-10-21T15:43:05.08506422Z","request_Referer":"https://secret.example/a","request_User-Agent":"secret-agent"}"#,
         )
         .unwrap();
         assert_eq!(hit.ts_ms, 1_792_597_385_085);
@@ -339,6 +351,7 @@ mod tests {
         assert_eq!(hit.path, "/pricing");
         assert_eq!(hit.status, 404);
         assert_eq!(hit.request_time_ms, 42);
+        assert!(hit.routed);
         let event = event_json(&hit, false);
         assert!(!event.contains("secret"));
         assert!(!event.contains('?'));
@@ -351,6 +364,17 @@ mod tests {
             r#"{"ClientHost":"203.0.113.10","DownstreamStatus":200,"RequestHost":"shop.example","RequestMethod":"GET","RequestPath":"/.well-known/acme-challenge/token","StartUTC":"2026-10-21T15:43:05Z"}"#
         )
         .is_none());
+        let scan = parse_line(
+            r#"{"ClientHost":"203.0.113.10","DownstreamStatus":503,"RequestHost":"www.securitas.com","RequestMethod":"GET","RequestPath":"/","RouterName":"catchall@file","StartUTC":"2026-10-21T15:43:05Z"}"#,
+        )
+        .unwrap();
+        assert!(!scan.routed);
+        assert!(event_json(&scan, false).contains(r#""routed":false"#));
+        let bare = parse_line(
+            r#"{"ClientHost":"203.0.113.10","DownstreamStatus":404,"RequestHost":"95.81.96.246","RequestMethod":"GET","RequestPath":"/","StartUTC":"2026-10-21T15:43:05Z"}"#,
+        )
+        .unwrap();
+        assert!(!bare.routed);
     }
 
     #[test]

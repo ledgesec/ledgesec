@@ -104,6 +104,18 @@ def test_a_new_site_is_kept_and_a_disabled_one_is_dropped():
     assert json.loads(kept[0])["site_id"] == "shop.example"
 
 
+def test_a_catch_all_host_stays_in_the_journal_and_does_not_become_a_site():
+    rows = [
+        {"host_id": "host1", "site_id": "www.securitas.com", "path": "/", "routed": False},
+        {"host_id": "host1", "site_id": "plantagoweb.com", "path": "/blog/", "routed": True},
+    ]
+    kept, fresh = split_monitored(rows, {"host1"}, {})
+    assert fresh == [("host1", "plantagoweb.com")]
+    stored = [json.loads(line) for line in kept]
+    assert [row["site_id"] for row in stored] == ["www.securitas.com", "plantagoweb.com"]
+    assert all("routed" not in row for row in stored)
+
+
 def test_an_unknown_host_is_rejected():
     with pytest.raises(ValueError, match="unknown_host"):
         split_monitored([{"host_id": "missing", "site_id": "shop.example"}], set(), {})

@@ -212,6 +212,13 @@ def set_site_enabled(db: Session, host_id: str, name: str, enabled: bool, owner_
     write_enabled(db, row, enabled)
 
 
+def _journal_line(row: dict, name: str) -> str:
+    stored = dict(row)
+    stored.pop("routed", None)
+    stored["site_id"] = name
+    return json.dumps(stored, separators=(",", ":"))
+
+
 def split_monitored(
     rows: list[dict],
     hosts: set[str],
@@ -220,6 +227,7 @@ def split_monitored(
     flags = dict(sites)
     fresh: list[tuple[str, str]] = []
     kept: list[str] = []
+    pending: list[tuple[dict, str, str]] = []
     for row in rows:
         host_id = str(row.get("host_id") or "")
         if host_id not in hosts:
@@ -227,15 +235,22 @@ def split_monitored(
         name = site_name(str(row.get("site_id") or ""))
         if name == "":
             continue
+        pending.append((row, host_id, name))
+    opened = {(host_id, name) for row, host_id, name in pending if row.get("routed") is not False}
+    seen: set[tuple[str, str]] = set()
+    for row, host_id, name in pending:
         key = (host_id, name)
         if key not in flags:
+            if key not in opened:
+                kept.append(_journal_line(row, name))
+                continue
             flags[key] = True
-            fresh.append(key)
+            if key not in seen:
+                fresh.append(key)
+                seen.add(key)
         if not flags[key]:
             continue
-        stored = dict(row)
-        stored["site_id"] = name
-        kept.append(json.dumps(stored, separators=(",", ":")))
+        kept.append(_journal_line(row, name))
     return kept, fresh
 
 

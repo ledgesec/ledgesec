@@ -5,6 +5,7 @@ import {
   DEFAULT_REFRESH_SECONDS,
   REFRESH_SECONDS,
   arrivedKeys,
+  latestRequests,
   observationKey,
   refreshLabel,
   type RefreshSeconds,
@@ -105,7 +106,7 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
       const onRequests = section === "requests";
       const refreshObservations = section === "overview" || (onRequests && observationOnFirstPage.current);
       const refreshAddresses =
-        mode === ADMIN && addressOnFirstPage.current && (section === "overview" || section === "addresses");
+        mode === ADMIN && addressOnFirstPage.current && section === "addresses";
       const observations = refreshObservations
         ? readObservations(null, "next", onRequests ? (addressFilter ?? "") : "", onRequests ? (pathFilter ?? "") : "")
         : Promise.resolve(null);
@@ -341,15 +342,10 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
       {journal && section === "overview" ? (
         <Overview
           summary={journal.summary}
-          addresses={journal.addresses}
           mode={mode}
           onRequests={openAddress}
           onPath={openPath}
-          onAllAddresses={() => chooseSection("addresses")}
           onAllProbes={() => chooseSection("probes")}
-          addressPrev={journal.addressPrev}
-          addressNext={journal.addressNext}
-          onAddressPage={turnAddresses}
           observations={journal.observations}
           freshRequests={freshRequests}
         />
@@ -459,28 +455,18 @@ function RefreshPicker({ value, onChange }: { value: RefreshSeconds; onChange: (
 
 function Overview({
   summary,
-  addresses,
   mode,
   onRequests,
-  onAllAddresses,
-  addressPrev,
-  addressNext,
-  onAddressPage,
   observations,
   freshRequests,
   onPath,
   onAllProbes,
 }: {
   summary: Summary;
-  addresses: AddressRow[];
   mode: CabinetMode;
   onRequests: (ip: string) => void;
   onPath: (path: string) => void;
-  onAllAddresses: () => void;
   onAllProbes: () => void;
-  addressPrev: string | null;
-  addressNext: string | null;
-  onAddressPage: (direction: "next" | "prev") => void;
   observations: Observation[];
   freshRequests: string[];
 }) {
@@ -518,34 +504,12 @@ function Overview({
           </section>
         </div>
       ) : null}
-      {mode === ADMIN ? (
-        <section className="glass-panel overflow-x-auto p-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-medium">Who is knocking</h2>
-            <button type="button" className="text-sm text-cyber-cyan" onClick={onAllAddresses}>
-              All addresses
-            </button>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Addresses in the latest journal. The request still goes through.
-          </p>
-          <div className="mt-4">
-            <AddressPanel rows={addresses} onRequests={onRequests} compact />
-            <TablePager
-              prev={addressPrev}
-              next={addressNext}
-              onPrev={() => onAddressPage("prev")}
-              onNext={() => onAddressPage("next")}
-            />
-          </div>
-        </section>
-      ) : null}
       <section className="glass-panel overflow-x-auto p-4">
         <h2 className="text-sm font-medium">Latest requests</h2>
-        <p className="mt-1 text-xs text-muted-foreground">A new request starts green, then settles.</p>
+        <p className="mt-1 text-xs text-muted-foreground">The latest 30. A new request starts green, then settles.</p>
         <div className="mt-4">
           <RequestList
-            rows={observations}
+            rows={latestRequests(observations)}
             showEdge={mode === ADMIN}
             showAddress={mode === ADMIN}
             onAddress={onRequests}

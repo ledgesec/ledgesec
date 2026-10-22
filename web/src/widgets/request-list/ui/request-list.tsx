@@ -37,7 +37,7 @@ export function RequestList({
       <TableBody>
         {rows.map((row) => {
           const arrived = fresh.includes(observationKey(row));
-          const tone = [row.marker ? "bg-probe-surface text-probe-foreground" : "", arrived ? "request-arrive" : ""]
+          const tone = [row.marker ? "bg-probe-surface text-probe-foreground" : "", arrived ? "[&>td]:animate-request-arrive" : ""]
             .filter(Boolean)
             .join(" ");
           return (
