@@ -106,6 +106,75 @@ def summarize(rows: list[CountRow], now: datetime | None = None) -> dict:
     }
 
 
+def summarize_parts(
+    rollups: list[CountRow],
+    paths: list[CountRow],
+    probes: list[CountRow],
+    now: datetime | None = None,
+) -> dict:
+    requests = 0
+    sites: set[str] = set()
+    edges: dict[str, list[int]] = {}
+    by_site: dict[str, list[int]] = {}
+    hours: dict[str, list[int]] = {}
+    for row in rollups:
+        if row.count <= 0:
+            continue
+        requests += row.count
+        sites.add(row.site_id)
+        edge = edges.setdefault(row.edge_id, [0, 0])
+        edge[0] += row.count
+        site = by_site.setdefault(row.site_id, [0, 0])
+        site[0] += row.count
+        bucket = hours.setdefault(normalize_hour(row.hour), [0, 0])
+        bucket[0] += row.count
+    timing: dict[str, list[int]] = {}
+    for row in paths:
+        if row.count <= 0:
+            continue
+        clock = timing.setdefault(row.path, [0, 0, 0])
+        clock[0] += row.count
+        clock[1] += row.time_ms
+        clock[2] = max(clock[2], row.max_ms)
+    probes_total = 0
+    by_path: dict[str, int] = {}
+    labels: dict[str, str] = {}
+    for row in probes:
+        if row.count <= 0:
+            continue
+        marker = classify(row.path)
+        if marker is None:
+            continue
+        probes_total += row.count
+        bucket = hours.setdefault(normalize_hour(row.hour), [0, 0])
+        bucket[1] += row.count
+        edge = edges.setdefault(row.edge_id, [0, 0])
+        edge[1] += row.count
+        site = by_site.setdefault(row.site_id, [0, 0])
+        site[1] += row.count
+        by_path[row.path] = by_path.get(row.path, 0) + row.count
+        labels[row.path] = marker.label
+    ranked = sorted(by_path.items(), key=lambda item: (-item[1], item[0]))[:24]
+    return {
+        "window": "24h",
+        "requests": requests,
+        "probes": probes_total,
+        "sites": len(sites),
+        "edges": [
+            {"id": edge_id, "requests": counts[0], "probes": counts[1]}
+            for edge_id, counts in sorted(edges.items(), key=lambda item: (-item[1][0], item[0]))
+        ],
+        "by_site": [
+            {"name": name, "requests": counts[0], "probes": counts[1]}
+            for name, counts in sorted(by_site.items(), key=lambda item: (-item[1][0], item[0]))
+            if name and counts[0] > 0
+        ],
+        "hours": fill_hours({key: (value[0], value[1]) for key, value in hours.items()}, now),
+        "markers": [{"path": path, "label": labels[path], "count": count} for path, count in ranked],
+        "slow": slow_paths(timing),
+    }
+
+
 def with_rates(body: dict, rates: list[dict], countries: list[dict]) -> dict:
     total = 0
     domains = []

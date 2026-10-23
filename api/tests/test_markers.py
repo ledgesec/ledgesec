@@ -3,6 +3,15 @@ import pytest
 from app.observation.markers import classify
 
 
+def test_the_index_keeps_a_probe_an_ordinary_path_and_well_known():
+    assert classify("/.env") is not None
+    assert classify("/.env").label == "Secret file"
+    assert classify("/dump.sql") is not None
+    assert classify("/pricing") is None
+    assert classify("/.well-known") is None
+    assert classify("/.well-known/acme-challenge/token") is None
+
+
 @pytest.mark.parametrize(
     ("path", "code", "label"),
     [
@@ -172,8 +181,15 @@ from app.observation.markers import classify
         ("/wk/index.php", "shell", "Web shell"),
         ("/about.php", "shell", "Web shell"),
         ("/index/function.php", "shell", "Web shell"),
+        ("/bless.php", "shell", "Web shell"),
+        ("/wp.php", "shell", "Web shell"),
+        ("/2P.update.php", "shell", "Web shell"),
+        ("/a.php", "shell", "Web shell"),
+        ("/Component.php", "shell", "Web shell"),
+        ("/.ww.php", "shell", "Web shell"),
         ("/pricing", None, None),
         ("/.well-known/", None, None),
+        ("/.well-known", None, None),
         ("/.well-known/acme-challenge/token", None, None),
         ("/index.php", None, None),
         ("/information", None, None),

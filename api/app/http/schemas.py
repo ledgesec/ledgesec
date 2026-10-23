@@ -43,6 +43,7 @@ class ProbeRuleOut(BaseModel):
     label: str
     kind: str
     pattern: str
+    custom: bool = False
 
 
 class ProbeRulesOut(BaseModel):

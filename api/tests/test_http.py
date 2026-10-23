@@ -8,10 +8,12 @@ from fastapi.testclient import TestClient
 from app.access.models import Host, User
 from app.access.passwords import hash_password
 from app.access.sessions import sign_session
+from app.codes import Code
 from app.db import get_db
 from app.main import create_app
 from app.observation.addresses import address_panel
 from app.observation.summary import summarize
+from app.observation.throttle import READS, admit, clear_reads
 
 SECRET = "session-secret"
 USER_ID = "ab" * 8
@@ -43,11 +45,14 @@ class FakeDb:
             return user
         return None
 
-    def scalars(self, _statement):
+    def scalars(self, statement):
         self._boom()
+        self.statement = statement
         return self
 
     def all(self):
+        if "probe_rules" in str(getattr(self, "statement", "")):
+            return []
         if self.holder.hosts is not None:
             return self.holder.hosts
         if self.holder.user is None:
@@ -75,6 +80,7 @@ def admin():
 
 
 def client_for(holder):
+    clear_reads()
     app = create_app(prepare=False)
 
     def _db():
@@ -203,6 +209,26 @@ def test_site_user_observations_hide_the_address(monkeypatch):
     assert seen["extra"]["wide"] is False
     assert seen["extra"]["q"] is None
     assert seen["extra"]["edge"] is None
+
+
+def test_a_journal_storm_does_not_read(monkeypatch):
+    monkeypatch.setenv("LEDGESEC_SESSION_SECRET", SECRET)
+    holder = Holder()
+    holder.user = admin()
+    holder.user.role = "user"
+    holder.user.site_id = ""
+
+    def fail(*_args, **_kwargs):
+        raise AssertionError("journal should not be read")
+
+    monkeypatch.setattr("app.http.observation.fetch_event_page", fail)
+    client = client_for(holder)
+    client.cookies.set("ledgesec_session", sign_session(USER_ID))
+    for _ in range(READS):
+        admit(USER_ID)
+    response = client.get("/v1/observations")
+    assert response.status_code == 429
+    assert response.json() == {"error": Code.BUSY}
 
 
 def test_user_without_a_host_gets_an_empty_journal(monkeypatch):

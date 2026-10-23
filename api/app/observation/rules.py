@@ -5,7 +5,16 @@ from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.codes import Code
-from app.observation.markers import RULES, ProbeRule, as_rule, bind_rules, pattern_rows, prepare, reset_rules, rule_id
+from app.observation.markers import (
+    RULES,
+    ProbeRule,
+    as_rule,
+    bind_rules,
+    pattern_rows,
+    prepare,
+    reset_rules,
+    rule_id,
+)
 from app.observation.models import ProbePattern
 
 
@@ -31,10 +40,8 @@ def applied_rules(db: Session):
         reset_rules(token)
 
 
-def list_custom(db: Session) -> list[dict]:
-    rows = db.scalars(
-        select(ProbePattern).where(ProbePattern.custom.is_(True)).order_by(ProbePattern.created_at, ProbePattern.id)
-    ).all()
+def list_rules(db: Session) -> list[dict]:
+    rows = db.scalars(select(ProbePattern).order_by(ProbePattern.label, ProbePattern.pattern)).all()
     return [_public(row) for row in rows]
 
 
@@ -67,4 +74,11 @@ def seed_rows() -> list[dict]:
 
 
 def _public(row: ProbePattern) -> dict:
-    return {"id": row.id, "code": row.code, "label": row.label, "kind": row.kind, "pattern": row.pattern}
+    return {
+        "id": row.id,
+        "code": row.code,
+        "label": row.label,
+        "kind": row.kind,
+        "pattern": row.pattern,
+        "custom": row.custom,
+    }

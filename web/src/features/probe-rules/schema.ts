@@ -11,7 +11,7 @@ export const MARKER_LABEL = "Label";
 export const MARKER_PATTERN = "Pattern";
 export const MARKER_KIND = "Match";
 export const MARKER_SAVED = "The marker is saved. Matching paths pick it up the next time the journal is read.";
-export const MARKER_EMPTY = "No markers have been added yet.";
+export const MARKER_EMPTY = "No markers.";
 export const REMOVE_MARKER = "Remove";
 
 export const KIND_LABEL: Record<(typeof RULE_KINDS)[number], string> = {

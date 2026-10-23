@@ -246,13 +246,24 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
     const period = refreshWait(0, refreshSeconds);
     if (period === null) return;
     const controller = new AbortController();
-    const timer = window.setInterval(() => {
+    let timer = 0;
+    const tick = () => {
       if (controller.signal.aborted) return;
+      const started = performance.now();
+      const finish = () => {
+        if (controller.signal.aborted) return;
+        const wait = refreshWait(performance.now() - started, refreshSeconds);
+        if (wait === null) return;
+        timer = window.setTimeout(tick, wait);
+      };
       const onRequests = section === REQUESTS;
       const refreshObservations = section === OVERVIEW || (onRequests && observationOnFirstPage.current);
       const refreshAddresses =
         mode === ADMIN && addressOnFirstPage.current && section === ADDRESSES;
-      if (!refreshObservations && !refreshAddresses) return;
+      if (!refreshObservations && !refreshAddresses) {
+        finish();
+        return;
+      }
       const key = liveViewKey();
       const observations = refreshObservations
         ? readObservations(
@@ -312,11 +323,13 @@ export function CabinetPage({ host, mode }: { host: string; mode: CabinetMode })
         .catch((error: unknown) => {
           if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
           setJournalError(true);
-        });
-    }, period);
+        })
+        .finally(finish);
+    };
+    timer = window.setTimeout(tick, period);
     return () => {
       controller.abort();
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
     };
   }, [
     phase,

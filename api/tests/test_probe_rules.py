@@ -1,7 +1,16 @@
 from app.codes import Code
-from app.observation.markers import bind_rules, classify, pattern_rows, prepare, reset_rules, rule_id
-from app.observation.markers import as_rule
-from app.observation.markers import SUFFIX
+from app.observation.markers import (
+    SUFFIX,
+    as_rule,
+    bind_rules,
+    classify,
+    pattern_rows,
+    prepare,
+    reset_rules,
+    rule_id,
+)
+from app.observation.models import ProbePattern
+from app.observation.rules import _public
 
 
 def test_the_seed_keeps_the_scan_patterns():
@@ -15,6 +24,13 @@ def test_the_seed_keeps_the_scan_patterns():
     assert "/classwithtostring.php" in patterns
     assert all(row["custom"] is False for row in pattern_rows())
     assert rule_id(SUFFIX, "/firebase-key.json") == rule_id(SUFFIX, "/firebase-key.json")
+
+
+def test_a_listed_rule_says_whether_it_was_added():
+    builtin = ProbePattern(id="a", code="shell", label="Web shell", kind=SUFFIX, pattern="/bless.php", custom=False)
+    added = ProbePattern(id="b", code="notes", label="Notes", kind=SUFFIX, pattern="/notes.txt", custom=True)
+    assert _public(builtin)["custom"] is False
+    assert _public(added)["custom"] is True
 
 
 def test_a_blank_pattern_is_refused_and_a_label_can_name_the_code():

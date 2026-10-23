@@ -13,6 +13,7 @@ class Code:
     BAD_SITE = "bad_site"
     BAD_USER = "bad_user"
     BAD_WINDOW = "bad_window"
+    BUSY = "busy"
     CLICKHOUSE_DOWN = "clickhouse_down"
     EXISTS = "exists"
     INGEST_DISABLED = "ingest_disabled"

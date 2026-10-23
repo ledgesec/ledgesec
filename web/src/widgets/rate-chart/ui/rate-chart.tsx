@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Activity } from "lucide-react";
 import type { RateSeries } from "@/entities/observation/model";
+import { refreshWait } from "@/entities/observation/arrive";
 import { readRates } from "@/features/journal/api";
 import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -29,7 +30,9 @@ export function RateChart({ refreshSeconds }: { refreshSeconds: number }) {
 
   useEffect(() => {
     let stop = false;
+    let timer = 0;
     const load = () => {
+      const started = performance.now();
       readRates(picked)
         .then((body) => {
           if (stop || body.window !== picked) return;
@@ -39,14 +42,18 @@ export function RateChart({ refreshSeconds }: { refreshSeconds: number }) {
         .catch(() => {
           if (stop) return;
           setFailed(true);
+        })
+        .finally(() => {
+          if (stop) return;
+          const wait = refreshWait(performance.now() - started, refreshSeconds);
+          if (wait === null) return;
+          timer = window.setTimeout(load, wait);
         });
     };
     load();
-    if (refreshSeconds <= 0) return () => { stop = true; };
-    const timer = window.setInterval(load, refreshSeconds * 1000);
     return () => {
       stop = true;
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
     };
   }, [picked, refreshSeconds]);
 

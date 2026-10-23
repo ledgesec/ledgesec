@@ -114,22 +114,24 @@ export function MarkerForm() {
                   {KIND_LABEL[rule.kind as keyof typeof KIND_LABEL] ?? rule.kind} {rule.pattern}
                 </span>
               </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-cyber-cyan"
-                pending={removing === rule.id}
-                onClick={() => {
-                  setRemoving(rule.id);
-                  deleteProbeRule(rule.id)
-                    .then(() => setRules((current) => (current ?? []).filter((item) => item.id !== rule.id)))
-                    .catch(() => setFieldError("The marker was not removed."))
-                    .finally(() => setRemoving(""));
-                }}
-              >
-                {REMOVE_MARKER}
-              </Button>
+              {rule.custom ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-cyber-cyan"
+                  pending={removing === rule.id}
+                  onClick={() => {
+                    setRemoving(rule.id);
+                    deleteProbeRule(rule.id)
+                      .then(() => setRules((current) => (current ?? []).filter((item) => item.id !== rule.id)))
+                      .catch(() => setFieldError("The marker was not removed."))
+                      .finally(() => setRemoving(""));
+                  }}
+                >
+                  {REMOVE_MARKER}
+                </Button>
+              ) : null}
             </li>
           ))}
         </ul>

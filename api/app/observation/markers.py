@@ -244,6 +244,68 @@ RULES = (
             "/rip.php",
             "/ioxi-o.php",
             "/inputs.php",
+            "/bless.php",
+            "/bolt.php",
+            "/manager.php",
+            "/wp.php",
+            "/edit.php",
+            "/2p.update.php",
+            "/2p.php",
+            "/csss.php",
+            "/hp2.php",
+            "/worksec.php",
+            "/theme.php",
+            "/samll.php",
+            "/mh.php",
+            "/lufizz.php",
+            "/hh.php",
+            "/gulu.php",
+            "/fpwch.php",
+            "/file5.php",
+            "/fff.php",
+            "/f.php",
+            "/em.php",
+            "/default.php",
+            "/bavbdb.php",
+            "/anom.php",
+            "/6.php",
+            "/002.php",
+            "/0-9.php",
+            "/.ww.php",
+            "/xyn.php",
+            "/term.php",
+            "/readme.php",
+            "/opomo.php",
+            "/jpg.php",
+            "/go.php",
+            "/a.php",
+            "/tdn_up.php",
+            "/plugin-bridge.php",
+            "/lufix.php",
+            "/jaw.php",
+            "/sallu.php",
+            "/dex.php",
+            "/component.php",
+            "/das.php",
+            "/cdc.php",
+            "/kir.php",
+            "/dsa.php",
+            "/bnmtp.php",
+            "/opsh.php",
+            "/motu.php",
+            "/min.php",
+            "/init-notica.php",
+            "/sm.php",
+            "/ebkid.php",
+            "/ai.php",
+            "/fferr.php",
+            "/403.php",
+            "/1.php",
+            "/txets.php",
+            "/wp_blog_footer.php",
+            "/php8.php",
+            "/hplfuns.php",
+            "/xl9.php",
         ),
     ),
 )
@@ -326,13 +388,67 @@ def prepare(code: str, label: str, kind: str, pattern: str) -> tuple[str, str, s
     return name, text, kind, value
 
 
-def classify(path: str) -> Marker | None:
-    value = str(path or "").lower()
+@dataclass(frozen=True)
+class _Compiled:
+    code: str
+    label: str
+    exact: frozenset[str]
+    prefixes: tuple[tuple[int, frozenset[str]], ...]
+    suffixes: tuple[tuple[int, frozenset[str]], ...]
+    contains: tuple[str, ...]
+
+
+def _lengths(values: tuple[str, ...]) -> tuple[tuple[int, frozenset[str]], ...]:
+    grouped: dict[int, set[str]] = {}
+    for value in values:
+        grouped.setdefault(len(value), set()).add(value)
+    return tuple((length, frozenset(group)) for length, group in grouped.items())
+
+
+def _compile(rule: ProbeRule) -> _Compiled:
+    return _Compiled(
+        rule.code,
+        rule.label,
+        frozenset(rule.exact),
+        _lengths(rule.prefixes),
+        _lengths(rule.suffixes),
+        rule.contains,
+    )
+
+
+_indexed: ContextVar[tuple[ProbeRule, ...] | None] = ContextVar("probe_index_rules", default=None)
+_index: ContextVar[tuple[_Compiled, ...]] = ContextVar("probe_index", default=())
+
+
+def _compiled_rules() -> tuple[_Compiled, ...]:
     rules = _bound.get()
     if rules is None:
         rules = RULES
-    for rule in rules:
-        if rule.matches(value):
+    if _indexed.get() is rules:
+        return _index.get()
+    compiled = tuple(_compile(rule) for rule in rules)
+    _indexed.set(rules)
+    _index.set(compiled)
+    return compiled
+
+
+def _hit(path: str, rule: _Compiled) -> bool:
+    if path in rule.exact:
+        return True
+    size = len(path)
+    for length, group in rule.prefixes:
+        if size >= length and path[:length] in group:
+            return True
+    for length, group in rule.suffixes:
+        if size >= length and path[-length:] in group:
+            return True
+    return any(piece in path for piece in rule.contains)
+
+
+def classify(path: str) -> Marker | None:
+    value = str(path or "").lower()
+    for rule in _compiled_rules():
+        if _hit(value, rule):
             return Marker(rule.code, rule.label)
     return None
 

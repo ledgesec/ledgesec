@@ -1,6 +1,6 @@
 import { apiError } from "@/shared/lib/api-error";
 
-export type ProbeRule = { id: string; code: string; label: string; kind: string; pattern: string };
+export type ProbeRule = { id: string; code: string; label: string; kind: string; pattern: string; custom: boolean };
 
 export async function readProbeRules(): Promise<ProbeRule[]> {
   const response = await fetch("/api/v1/probe-rules", { credentials: "include" });

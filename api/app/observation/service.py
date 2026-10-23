@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from app.codes import Code
 from app.observation.addresses import address_panel
 from app.observation.geo import noted_country, tally_countries
-from app.observation.markers import marker_body
+from app.observation.markers import classify, marker_body
 from app.observation.page import (
     FIND_LIMIT,
     PAGE,
@@ -24,14 +24,16 @@ from app.observation.repository import (
     event_rows,
     insert_events,
     open_country_rows,
+    path_rows,
+    probe_rows,
     rate_rows,
+    rollup_rows,
     series_rows,
-    summary_rows,
 )
-from app.observation.summary import CountRow, summarize, with_rates
+from app.observation.summary import CountRow, summarize_parts, with_rates
 
 SUMMARY_SHARE_SECONDS = 1
-SUMMARY_READS = 4
+SUMMARY_READS = 5
 
 _summary_cache: dict[str, tuple[float, dict]] = {}
 _summary_lock = threading.Lock()
@@ -76,16 +78,40 @@ def _count_row(row: dict) -> CountRow:
     )
 
 
+def _probe_names(rows: list[dict]) -> list[str]:
+    names = []
+    seen: set[str] = set()
+    for row in rows:
+        path = str(row.get("path") or "")
+        if path in seen:
+            continue
+        seen.add(path)
+        if classify(path) is not None:
+            names.append(path)
+    return names
+
+
 def _build_summary(host_ids: list[str] | None) -> dict:
     with ThreadPoolExecutor(max_workers=SUMMARY_READS) as pool:
-        grouped = pool.submit(summary_rows, host_ids)
+        grouped = pool.submit(rollup_rows, host_ids)
+        by_path = pool.submit(path_rows, host_ids)
         countries = pool.submit(country_rows, host_ids)
         pending = pool.submit(open_country_rows, host_ids)
         rates = pool.submit(rate_rows, host_ids)
-        rows = [_count_row(row) for row in grouped.result()]
+        found_paths = by_path.result()
+        probes = probe_rows(host_ids, _probe_names(found_paths))
         places = tally_countries(countries.result(), pending.result())
         found = rates.result()
-    return with_rates(summarize(rows), found, places)
+        rollups = grouped.result()
+    return with_rates(
+        summarize_parts(
+            [_count_row(row) for row in rollups],
+            [_count_row(row) for row in found_paths],
+            [_count_row(row) for row in probes],
+        ),
+        found,
+        places,
+    )
 
 
 def fetch_summary(host_ids: list[str] | None = None) -> dict:

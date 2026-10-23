@@ -45,14 +45,53 @@ def host_predicate(host_ids: list[str] | None) -> tuple[str, dict[str, str]]:
     return f"host_id IN ({listed})", {}
 
 
-def count_query(host_ids: list[str] | None) -> tuple[str, dict[str, str]]:
+def _day(host_ids: list[str] | None) -> tuple[str, dict[str, str]]:
     predicate, params = host_predicate(host_ids)
     where = "ts >= now() - INTERVAL 24 HOUR"
     if predicate:
         where = f"{where} AND {predicate}"
+    return where, params
+
+
+def rollup_query(host_ids: list[str] | None) -> tuple[str, dict[str, str]]:
+    where, params = _day(host_ids)
     sql = (
-        "SELECT path, toString(toStartOfHour(ts)) AS hour, edge_id, site_id, count() AS count, "
-        "sum(request_time_ms) AS time_ms, max(request_time_ms) AS max_ms "
+        "SELECT toString(toStartOfHour(ts)) AS hour, edge_id, site_id, count() AS count "
+        "FROM ledgesec.events "
+        f"WHERE {where} "
+        "GROUP BY hour, edge_id, site_id "
+        "FORMAT JSONEachRow"
+    )
+    return sql, params
+
+
+def path_query(host_ids: list[str] | None) -> tuple[str, dict[str, str]]:
+    where, params = _day(host_ids)
+    sql = (
+        "SELECT path, count() AS count, sum(request_time_ms) AS time_ms, max(request_time_ms) AS max_ms "
+        "FROM ledgesec.events "
+        f"WHERE {where} "
+        "GROUP BY path "
+        "FORMAT JSONEachRow"
+    )
+    return sql, params
+
+
+def probe_paths_param(paths: list[str]) -> str:
+    quoted = []
+    for path in paths:
+        escaped = path.replace("\\", "\\\\").replace("'", "\\'")
+        quoted.append("'" + escaped + "'")
+    return "[" + ",".join(quoted) + "]"
+
+
+def probe_query(host_ids: list[str] | None, paths: list[str]) -> tuple[str, dict[str, str]]:
+    where, params = _day(host_ids)
+    where = f"{where} AND path IN {{probe_paths:Array(String)}}"
+    params = dict(params)
+    params["probe_paths"] = probe_paths_param(paths)
+    sql = (
+        "SELECT path, toString(toStartOfHour(ts)) AS hour, edge_id, site_id, count() AS count "
         "FROM ledgesec.events "
         f"WHERE {where} "
         "GROUP BY path, hour, edge_id, site_id "
@@ -102,9 +141,23 @@ def country_query(host_ids: list[str] | None) -> tuple[str, dict[str, str]]:
     return sql, params
 
 
-def summary_rows(host_ids: list[str] | None) -> list[dict]:
+def rollup_rows(host_ids: list[str] | None) -> list[dict]:
     prepare_journal()
-    sql, params = count_query(host_ids)
+    sql, params = rollup_query(host_ids)
+    return clickhouse_rows(sql, params)
+
+
+def path_rows(host_ids: list[str] | None) -> list[dict]:
+    prepare_journal()
+    sql, params = path_query(host_ids)
+    return clickhouse_rows(sql, params)
+
+
+def probe_rows(host_ids: list[str] | None, paths: list[str]) -> list[dict]:
+    if not paths:
+        return []
+    prepare_journal()
+    sql, params = probe_query(host_ids, paths)
     return clickhouse_rows(sql, params)
 
 

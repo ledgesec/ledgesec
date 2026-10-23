@@ -24,7 +24,7 @@ from app.http.schemas import (
 )
 from app.observation.ingest import INGEST_BODY_LIMIT, accept_batch, batch_note
 from app.observation.rates import DEFAULT_RATE_WINDOW, rates_body, window_of
-from app.observation.rules import add_rule, applied_rules, list_custom, remove_rule
+from app.observation.rules import add_rule, applied_rules, list_rules, remove_rule
 from app.observation.service import (
     fetch_address_page,
     fetch_event_page,
@@ -33,8 +33,16 @@ from app.observation.service import (
     insert_observations,
 )
 from app.observation.summary import summarize
+from app.observation.throttle import admit
 
 router = APIRouter()
+
+
+def guard(actor_id: str) -> None:
+    try:
+        admit(actor_id)
+    except ValueError as exc:
+        raise ApiError(429, str(exc)) from exc
 
 
 def dump_observation(row: dict, *, include_ip: bool) -> dict:
@@ -57,6 +65,7 @@ def observations(
     country: str = "",
     edge: str = "",
 ) -> JSONResponse:
+    guard(actor.id)
     try:
         host_ids = journal_host_ids(db, actor)
     except Unscoped:
@@ -93,6 +102,7 @@ def observations(
 
 @router.get("/v1/summary")
 def summary(actor: ActorDep, db: Db) -> JSONResponse:
+    guard(actor.id)
     try:
         host_ids = journal_host_ids(db, actor)
     except Unscoped:
@@ -113,6 +123,7 @@ def rates(actor: ActorDep, db: Db, window: str = "") -> JSONResponse:
         name, span, step = window_of(window or DEFAULT_RATE_WINDOW)
     except ValueError as exc:
         raise ApiError(400, str(exc)) from exc
+    guard(actor.id)
     try:
         host_ids = journal_host_ids(db, actor)
     except Unscoped:
@@ -130,7 +141,7 @@ def rates(actor: ActorDep, db: Db, window: str = "") -> JSONResponse:
 
 @router.get("/v1/addresses")
 def addresses(
-    _actor: AdminDep,
+    actor: AdminDep,
     db: Db,
     cursor: str = "",
     direction: str = "next",
@@ -139,6 +150,7 @@ def addresses(
     country: str = "",
     edge: str = "",
 ) -> JSONResponse:
+    guard(actor.id)
     try:
         with applied_rules(db):
             rows, nxt, prev = fetch_address_page(
@@ -184,7 +196,7 @@ async def ingest(request: Request, db: Db) -> JSONResponse:
 @router.get("/v1/probe-rules")
 def probe_rules(db: Db, _actor: AdminDep) -> JSONResponse:
     try:
-        rows = list_custom(db)
+        rows = list_rules(db)
     except SQLAlchemyError as exc:
         raise ApiError(503, Code.POSTGRES_DOWN) from exc
     return JSONResponse(ProbeRulesOut.model_validate({"rules": rows}).model_dump())

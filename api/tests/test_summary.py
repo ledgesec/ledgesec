@@ -4,15 +4,18 @@ import pytest
 
 from app.http.schemas import SummaryOut
 from app.observation.clickhouse import clickhouse_call
+from app.observation.markers import classify
 from app.observation.repository import (
-    count_query,
     country_query,
     events_ttl,
     minute_ttl,
     open_country_query,
+    path_query,
+    probe_query,
     rate_query,
+    rollup_query,
 )
-from app.observation.summary import CountRow, summarize, with_rates
+from app.observation.summary import CountRow, summarize, summarize_parts, with_rates
 
 
 def test_summary_uses_the_marker_rule_not_a_second_sql_copy():
@@ -57,21 +60,81 @@ def test_empty_window_is_twenty_four_zero_hours():
     assert body["hours"][-1]["hour"] == "2026-10-21 16:00:00"
 
 
-def test_count_query_filters_by_owned_hosts_and_does_not_encode_probe_rules():
-    sql, params = count_query(None)
-    assert params == {}
-    assert "count()" in sql
-    assert "sum(request_time_ms)" in sql
-    assert "max(request_time_ms)" in sql
-    assert "phpmyadmin" not in sql
-    assert "/.env" not in sql
-    scoped, scoped_params = count_query(["f274178d", "abcd1234"])
+def _split(rows: list[CountRow]) -> tuple[list[CountRow], list[CountRow], list[CountRow]]:
+    rollups: dict[tuple[str, str, str], CountRow] = {}
+    paths: dict[str, CountRow] = {}
+    probes = []
+    for row in rows:
+        key = (row.hour, row.edge_id, row.site_id)
+        current = rollups.get(key)
+        rollups[key] = CountRow(
+            "",
+            row.hour,
+            row.edge_id,
+            row.site_id,
+            row.count if current is None else current.count + row.count,
+        )
+        clock = paths.get(row.path)
+        if clock is None:
+            paths[row.path] = CountRow(row.path, "", "", "", row.count, row.time_ms, row.max_ms)
+        else:
+            paths[row.path] = CountRow(
+                row.path,
+                "",
+                "",
+                "",
+                clock.count + row.count,
+                clock.time_ms + row.time_ms,
+                max(clock.max_ms, row.max_ms),
+            )
+        if classify(row.path) is not None:
+            probes.append(row)
+    return list(rollups.values()), list(paths.values()), probes
+
+
+def test_split_summary_matches_the_single_pass():
+    now = datetime(2026, 10, 21, 16, 40, tzinfo=UTC)
+    rows = [
+        CountRow("/.env", "2026-10-21 16:00:00.000", "eu", "demo", 2, time_ms=40, max_ms=30),
+        CountRow("/pricing", "2026-10-21T15:00:00", "us", "demo", 3, time_ms=900, max_ms=500),
+        CountRow("/pricing", "2026-10-21 16:00:00", "eu", "demo", 1, time_ms=100, max_ms=100),
+        CountRow("/wp-login.php", "2026-10-21 16:00:00", "eu", "other", 1, time_ms=100, max_ms=100),
+    ]
+    whole = summarize(rows, now)
+    assert summarize_parts(*_split(rows), now) == whole
+    SummaryOut.model_validate(whole)
+    assert whole["slow"][0]["path"] == "/pricing"
+    assert whole["slow"][0]["label"] == ""
+    assert whole["markers"][0] == {"path": "/.env", "label": "Secret file", "count": 2}
+
+
+def test_summary_queries_do_not_encode_probe_rules():
+    rollup, rollup_params = rollup_query(None)
+    paths, path_params = path_query(None)
+    probes, probe_params = probe_query(["f274178d", "abcd1234"], ["/.env", "/o'hare"])
+    assert rollup_params == {}
+    assert path_params == {}
+    assert "path" not in rollup
+    assert "GROUP BY hour, edge_id, site_id" in rollup
+    assert "sum(request_time_ms)" in paths
+    assert "max(request_time_ms)" in paths
+    assert "GROUP BY path" in paths
+    assert "hour" not in paths
+    assert "path IN {probe_paths:Array(String)}" in probes
+    assert "host_id IN ('f274178d', 'abcd1234')" in probes
+    for sql in (rollup, paths, probes):
+        assert "phpmyadmin" not in sql
+        assert "/.env" not in sql
+    assert "/.env" in probe_params["probe_paths"]
+    assert "o'hare" not in probes
+    assert "\\'" in probe_params["probe_paths"]
+    scoped, scoped_params = rollup_query(["f274178d"])
     assert scoped_params == {}
-    assert "host_id IN ('f274178d', 'abcd1234')" in scoped
+    assert "host_id IN ('f274178d')" in scoped
     with pytest.raises(ValueError):
-        count_query(["bad site"])
+        path_query(["bad site"])
     with pytest.raises(ValueError):
-        count_query([])
+        rollup_query([])
 
 
 def test_a_journal_row_lives_for_three_years_and_is_not_deleted_by_hand():
@@ -150,7 +213,18 @@ def test_one_summary_is_shared_for_a_second(monkeypatch):
             }
         ]
 
-    monkeypatch.setattr("app.observation.service.summary_rows", rows)
+    seen = {"paths": None}
+
+    def paths(_host_ids):
+        return [{"path": "/", "count": 2, "time_ms": 0, "max_ms": 0}]
+
+    def probes(_host_ids, names):
+        seen["paths"] = names
+        return []
+
+    monkeypatch.setattr("app.observation.service.rollup_rows", rows)
+    monkeypatch.setattr("app.observation.service.path_rows", paths)
+    monkeypatch.setattr("app.observation.service.probe_rows", probes)
     monkeypatch.setattr("app.observation.service.country_rows", lambda _host_ids: [])
     monkeypatch.setattr("app.observation.service.open_country_rows", lambda _host_ids: [])
     monkeypatch.setattr("app.observation.service.rate_rows", lambda _host_ids: [])
@@ -158,6 +232,7 @@ def test_one_summary_is_shared_for_a_second(monkeypatch):
     first = fetch_summary(["abcd1234"])
     second = fetch_summary(["abcd1234"])
     assert calls["n"] == 1
+    assert seen["paths"] == []
     assert second["requests"] == first["requests"] == 2
     assert fetch_summary(None)["requests"] == 2
     assert calls["n"] == 2
