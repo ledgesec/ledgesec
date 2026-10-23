@@ -1,3 +1,13 @@
+(access_log) {
+	log {
+		output file /data/log/access.log {
+			roll_size 50MiB
+			roll_keep 3
+		}
+		format json
+	}
+}
+
 http://127.0.0.1 {
 	handle /edge-health {
 		respond "ok" 200
@@ -5,6 +15,7 @@ http://127.0.0.1 {
 }
 
 ledgesec.com, www.ledgesec.com {
+	import access_log
 	handle /edge-health {
 		respond "ok" 200
 	}
@@ -14,6 +25,7 @@ ledgesec.com, www.ledgesec.com {
 }
 
 dash.ledgesec.com, admin.ledgesec.com {
+	import access_log
 	handle /edge-health {
 		respond "ok" 200
 	}

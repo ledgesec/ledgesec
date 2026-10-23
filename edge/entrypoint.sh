@@ -7,6 +7,8 @@ if [ "${CADDY_LOCAL_CERTS:-}" = "1" ]; then
 	local_certs"
 fi
 
+mkdir -p /data/log
+
 cat > /etc/caddy/Caddyfile << EOF
 {
 	${options}
