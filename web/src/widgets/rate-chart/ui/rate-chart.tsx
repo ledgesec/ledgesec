@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Activity } from "lucide-react";
 import type { RateSeries } from "@/entities/observation/model";
-import { refreshWait } from "@/entities/observation/arrive";
+import { refreshWait, type RefreshSeconds } from "@/entities/observation/arrive";
 import { readRates } from "@/features/journal/api";
 import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -22,7 +22,7 @@ import {
 
 const RATE_ERROR = "The journal did not answer.";
 
-export function RateChart({ refreshSeconds }: { refreshSeconds: number }) {
+export function RateChart({ refreshSeconds }: { refreshSeconds: RefreshSeconds }) {
   const [picked, setPicked] = useState<RateWindow>(DEFAULT_RATE_WINDOW);
   const [series, setSeries] = useState<RateSeries | null>(null);
   const [failed, setFailed] = useState(false);

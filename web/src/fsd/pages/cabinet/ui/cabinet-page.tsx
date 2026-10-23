@@ -769,7 +769,7 @@ function Overview({
   probesHref: string;
   observations: Observation[];
   freshRequests: string[];
-  refreshSeconds: number;
+  refreshSeconds: RefreshSeconds;
 }) {
   const [query, setQuery, appliedQuery, queryHeld] = useField(QUERY);
   const [site, setSite] = useField(SITE, 0);
