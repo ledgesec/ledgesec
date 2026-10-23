@@ -389,58 +389,93 @@ def prepare(code: str, label: str, kind: str, pattern: str) -> tuple[str, str, s
 
 
 @dataclass(frozen=True)
-class _Compiled:
+class _Hit:
+    order: int
     code: str
     label: str
-    exact: frozenset[str]
-    prefixes: tuple[str, ...]
-    suffixes: tuple[str, ...]
-    contains: tuple[str, ...]
 
 
-def _compile(rule: ProbeRule) -> _Compiled:
-    return _Compiled(
-        rule.code,
-        rule.label,
-        frozenset(rule.exact),
-        rule.prefixes,
-        rule.suffixes,
-        rule.contains,
+@dataclass(frozen=True)
+class _Index:
+    exact: dict[str, _Hit]
+    prefixes: tuple[tuple[str, _Hit], ...]
+    prefix_patterns: tuple[str, ...]
+    suffixes: tuple[tuple[str, _Hit], ...]
+    suffix_patterns: tuple[str, ...]
+    contains: tuple[tuple[str, _Hit], ...]
+
+
+def _build_index(rules: tuple[ProbeRule, ...]) -> _Index:
+    exact: dict[str, _Hit] = {}
+    prefixes: list[tuple[str, _Hit]] = []
+    suffixes: list[tuple[str, _Hit]] = []
+    contains: list[tuple[str, _Hit]] = []
+    for order, rule in enumerate(rules):
+        hit = _Hit(order, rule.code, rule.label)
+        for pattern in rule.exact:
+            exact.setdefault(pattern, hit)
+        prefixes.extend((pattern, hit) for pattern in rule.prefixes)
+        suffixes.extend((pattern, hit) for pattern in rule.suffixes)
+        contains.extend((pattern, hit) for pattern in rule.contains)
+    return _Index(
+        exact,
+        tuple(prefixes),
+        tuple(pattern for pattern, _hit in prefixes),
+        tuple(suffixes),
+        tuple(pattern for pattern, _hit in suffixes),
+        tuple(contains),
     )
 
 
 _indexed: ContextVar[tuple[ProbeRule, ...] | None] = ContextVar("probe_index_rules", default=None)
-_index: ContextVar[tuple[_Compiled, ...]] = ContextVar("probe_index", default=())
+_index: ContextVar[_Index | None] = ContextVar("probe_index", default=None)
 
 
-def _compiled_rules() -> tuple[_Compiled, ...]:
+def _rule_index() -> _Index:
     rules = _bound.get()
     if rules is None:
         rules = RULES
     if _indexed.get() is rules:
-        return _index.get()
-    compiled = tuple(_compile(rule) for rule in rules)
+        cached = _index.get()
+        if cached is not None:
+            return cached
+    built = _build_index(rules)
     _indexed.set(rules)
-    _index.set(compiled)
-    return compiled
+    _index.set(built)
+    return built
 
 
-def _hit(path: str, rule: _Compiled) -> bool:
-    if path in rule.exact:
-        return True
-    if rule.prefixes and path.startswith(rule.prefixes):
-        return True
-    if rule.suffixes and path.endswith(rule.suffixes):
-        return True
-    return any(piece in path for piece in rule.contains)
+def _earlier(
+    value: str,
+    best: _Hit | None,
+    patterns: tuple[tuple[str, _Hit], ...],
+    matched,
+) -> _Hit | None:
+    for pattern, hit in patterns:
+        if best is not None and hit.order >= best.order:
+            break
+        if matched(value, pattern):
+            best = hit
+            break
+    return best
+
+
+def _contains(path: str, pattern: str) -> bool:
+    return pattern in path
 
 
 def classify(path: str) -> Marker | None:
     value = str(path or "").lower()
-    for rule in _compiled_rules():
-        if _hit(value, rule):
-            return Marker(rule.code, rule.label)
-    return None
+    index = _rule_index()
+    best = index.exact.get(value)
+    if index.prefix_patterns and value.startswith(index.prefix_patterns):
+        best = _earlier(value, best, index.prefixes, str.startswith)
+    if index.suffix_patterns and value.endswith(index.suffix_patterns):
+        best = _earlier(value, best, index.suffixes, str.endswith)
+    best = _earlier(value, best, index.contains, _contains)
+    if best is None:
+        return None
+    return Marker(best.code, best.label)
 
 
 def marker_body(path: str) -> dict | None:

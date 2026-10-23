@@ -68,25 +68,10 @@ def rollup_query(host_ids: list[str] | None) -> tuple[str, dict[str, str]]:
 def path_query(host_ids: list[str] | None) -> tuple[str, dict[str, str]]:
     where, params = _day(host_ids)
     sql = (
-        "SELECT path, count() AS count "
+        "SELECT path, count() AS count, sum(request_time_ms) AS time_ms, max(request_time_ms) AS max_ms "
         "FROM ledgesec.events "
         f"WHERE {where} "
         "GROUP BY path "
-        "FORMAT JSONEachRow"
-    )
-    return sql, params
-
-
-def slow_query(host_ids: list[str] | None, keep: int) -> tuple[str, dict[str, str]]:
-    where, params = _day(host_ids)
-    sql = (
-        "SELECT path, count() AS count, sum(request_time_ms) AS time_ms, max(request_time_ms) AS max_ms "
-        "FROM ledgesec.events "
-        f"WHERE {where} AND path != '' "
-        "GROUP BY path "
-        "HAVING sum(request_time_ms) > 0 "
-        "ORDER BY round(sum(request_time_ms) / count()) DESC, count() DESC, path "
-        f"LIMIT {int(keep)} "
         "FORMAT JSONEachRow"
     )
     return sql, params
@@ -165,12 +150,6 @@ def rollup_rows(host_ids: list[str] | None) -> list[dict]:
 def path_rows(host_ids: list[str] | None) -> list[dict]:
     prepare_journal()
     sql, params = path_query(host_ids)
-    return clickhouse_rows(sql, params)
-
-
-def slow_rows(host_ids: list[str] | None, keep: int) -> list[dict]:
-    prepare_journal()
-    sql, params = slow_query(host_ids, keep)
     return clickhouse_rows(sql, params)
 
 

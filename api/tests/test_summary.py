@@ -14,7 +14,6 @@ from app.observation.repository import (
     probe_query,
     rate_query,
     rollup_query,
-    slow_query,
 )
 from app.observation.summary import (
     SLOW_PATHS,
@@ -138,26 +137,22 @@ def test_split_summary_matches_the_single_pass():
 def test_summary_queries_do_not_encode_probe_rules():
     rollup, rollup_params = rollup_query(None)
     paths, path_params = path_query(None)
-    slow, slow_params = slow_query(None, SLOW_PATHS)
     probes, probe_params = probe_query(["f274178d", "abcd1234"], ["/.env", "/o'hare"])
     assert rollup_params == {}
     assert path_params == {}
-    assert slow_params == {}
     assert "path" not in rollup
     assert "GROUP BY hour, edge_id, site_id" in rollup
-    assert "sum(request_time_ms)" not in paths
+    assert "sum(request_time_ms)" in paths
+    assert "max(request_time_ms)" in paths
     assert "GROUP BY path" in paths
     assert "hour" not in paths
-    assert "sum(request_time_ms)" in slow
-    assert "max(request_time_ms)" in slow
-    assert "GROUP BY path" in slow
-    assert "hour" not in slow
-    assert f"LIMIT {SLOW_PATHS}" in slow
+    assert "LIMIT" not in paths
+    assert "HAVING" not in paths
     assert "GROUP BY hour, edge_id, site_id" in probes
     assert "GROUP BY path" not in probes
     assert "path IN {probe_paths:Array(String)}" in probes
     assert "host_id IN ('f274178d', 'abcd1234')" in probes
-    for sql in (rollup, paths, slow, probes):
+    for sql in (rollup, paths, probes):
         assert "phpmyadmin" not in sql
         assert "/.env" not in sql
     assert "/.env" in probe_params["probe_paths"]
@@ -166,12 +161,10 @@ def test_summary_queries_do_not_encode_probe_rules():
     scoped, scoped_params = rollup_query(["f274178d"])
     assert scoped_params == {}
     assert "host_id IN ('f274178d')" in scoped
-    scoped_slow, _slow_params = slow_query(["f274178d"], SLOW_PATHS)
-    assert "host_id IN ('f274178d')" in scoped_slow
+    scoped_paths, _path_params = path_query(["f274178d"])
+    assert "host_id IN ('f274178d')" in scoped_paths
     with pytest.raises(ValueError):
         path_query(["bad site"])
-    with pytest.raises(ValueError):
-        slow_query(["bad site"], SLOW_PATHS)
     with pytest.raises(ValueError):
         rollup_query([])
 
@@ -185,6 +178,22 @@ def test_a_journal_row_lives_for_three_years_and_is_not_deleted_by_hand():
     assert "DELETE" not in minutes
     assert "30 DAY" not in events
     assert "180 DAY" not in minutes
+
+
+def test_slow_paths_keep_the_twelve_longest_averages():
+    now = datetime(2026, 10, 21, 16, tzinfo=UTC)
+    highest = SLOW_PATHS + 3
+    rows = [
+        CountRow(f"/p{index}", "2026-10-21 16:00:00", "eu", "demo", 2, time_ms=index * 2, max_ms=index)
+        for index in range(1, highest + 1)
+    ]
+    rows.append(CountRow("/idle", "2026-10-21 16:00:00", "eu", "demo", 9))
+    body = summarize_parts([], {}, [], rows, now)
+    assert len(body["slow"]) == SLOW_PATHS
+    assert body["slow"][0]["path"] == f"/p{highest}"
+    assert body["slow"][0]["avg_ms"] == highest
+    assert body["slow"][-1]["avg_ms"] == highest - (SLOW_PATHS - 1)
+    assert all(item["path"] != "/idle" for item in body["slow"])
 
 
 def test_slow_paths_average_the_recorded_time_and_keep_a_probe_label():
@@ -255,7 +264,11 @@ def test_one_summary_is_shared_for_a_second(monkeypatch):
     seen = {"paths": None}
 
     def paths(_host_ids):
-        return [{"path": "/", "count": 2, "time_ms": 0, "max_ms": 0}]
+        return [
+            {"path": "/", "count": 2, "time_ms": 0, "max_ms": 0},
+            {"path": "/.env", "count": 2, "time_ms": 0, "max_ms": 0},
+            {"path": "/pricing", "count": 4, "time_ms": 800, "max_ms": 500},
+        ]
 
     def probes(_host_ids, names):
         seen["paths"] = names
@@ -263,7 +276,6 @@ def test_one_summary_is_shared_for_a_second(monkeypatch):
 
     monkeypatch.setattr("app.observation.service.rollup_rows", rows)
     monkeypatch.setattr("app.observation.service.path_rows", paths)
-    monkeypatch.setattr("app.observation.service.slow_rows", lambda *_args: [])
     monkeypatch.setattr("app.observation.service.probe_rows", probes)
     monkeypatch.setattr("app.observation.service.country_rows", lambda _host_ids: [])
     monkeypatch.setattr("app.observation.service.open_country_rows", lambda _host_ids: [])
@@ -272,7 +284,11 @@ def test_one_summary_is_shared_for_a_second(monkeypatch):
     first = fetch_summary(["abcd1234"])
     second = fetch_summary(["abcd1234"])
     assert calls["n"] == 1
-    assert seen["paths"] == []
+    assert seen["paths"] == ["/.env"]
+    assert first["markers"] == [{"path": "/.env", "label": "Secret file", "count": 2}]
+    assert first["slow"] == [
+        {"path": "/pricing", "label": "", "requests": 4, "avg_ms": 200, "max_ms": 500},
+    ]
     assert second["requests"] == first["requests"] == 2
     assert fetch_summary(None)["requests"] == 2
     assert calls["n"] == 2

@@ -29,10 +29,8 @@ from app.observation.repository import (
     rate_rows,
     rollup_rows,
     series_rows,
-    slow_rows,
 )
 from app.observation.summary import (
-    SLOW_PATHS,
     CountRow,
     probe_counts,
     summarize_parts,
@@ -40,7 +38,7 @@ from app.observation.summary import (
 )
 
 SUMMARY_SHARE_SECONDS = 1
-SUMMARY_READS = 6
+SUMMARY_READS = 5
 
 _summary_cache: dict[str, tuple[float, dict]] = {}
 _summary_lock = threading.Lock()
@@ -89,22 +87,21 @@ def _build_summary(host_ids: list[str] | None) -> dict:
     with ThreadPoolExecutor(max_workers=SUMMARY_READS) as pool:
         grouped = pool.submit(rollup_rows, host_ids)
         by_path = pool.submit(path_rows, host_ids)
-        slowed = pool.submit(slow_rows, host_ids, SLOW_PATHS)
         countries = pool.submit(country_rows, host_ids)
         pending = pool.submit(open_country_rows, host_ids)
         rates = pool.submit(rate_rows, host_ids)
-        names, markers = probe_counts([_count_row(row) for row in by_path.result()])
+        counted = [_count_row(row) for row in by_path.result()]
+        names, markers = probe_counts(counted)
         shares = probe_rows(host_ids, names)
         places = tally_countries(countries.result(), pending.result())
         found = rates.result()
         rollups = grouped.result()
-        slow_found = slowed.result()
     return with_rates(
         summarize_parts(
             [_count_row(row) for row in rollups],
             markers,
             [_count_row(row) for row in shares],
-            [_count_row(row) for row in slow_found],
+            counted,
         ),
         found,
         places,

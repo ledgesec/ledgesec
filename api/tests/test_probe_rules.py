@@ -1,6 +1,9 @@
 from app.codes import Code
 from app.observation.markers import (
+    CONTAINS,
+    PREFIX,
     SUFFIX,
+    ProbeRule,
     as_rule,
     bind_rules,
     classify,
@@ -41,6 +44,43 @@ def test_a_blank_pattern_is_refused_and_a_label_can_name_the_code():
     else:
         raise AssertionError("blank pattern")
     assert prepare("", "Cloud key", SUFFIX, "/firebase-key.json")[0] == "cloud-key"
+
+
+def test_the_index_follows_rule_order():
+    rules = (
+        ProbeRule("env", "Secret file", exact=("/.env",), suffixes=("/.env", "/.env~")),
+        as_rule("notes", "Notes", CONTAINS, "secret"),
+        as_rule("shell", "Web shell", SUFFIX, ".php"),
+        as_rule("later", "Later", PREFIX, "/.env"),
+    )
+    paths = (
+        "/.env",
+        "/.ENV",
+        "/foo/.env",
+        "/foo/.env~",
+        "/a/secret.php",
+        "/a.php",
+        "/pricing",
+        "/secret.txt",
+        "/.env/prod",
+    )
+    token = bind_rules(rules)
+    try:
+        for path in paths:
+            found = classify(path)
+            pair = (found.code, found.label) if found is not None else None
+            expected = None
+            lowered = path.lower()
+            for rule in rules:
+                if rule.matches(lowered):
+                    expected = (rule.code, rule.label)
+                    break
+            assert pair == expected
+    finally:
+        reset_rules(token)
+    restored = classify("/.env")
+    assert restored is not None
+    assert restored.code == "env"
 
 
 def test_a_bound_rule_replaces_the_builtin_list_for_one_read():
