@@ -14,8 +14,16 @@ from app.observation.repository import (
     probe_query,
     rate_query,
     rollup_query,
+    slow_query,
 )
-from app.observation.summary import CountRow, summarize, summarize_parts, with_rates
+from app.observation.summary import (
+    SLOW_PATHS,
+    CountRow,
+    probe_counts,
+    summarize,
+    summarize_parts,
+    with_rates,
+)
 
 
 def test_summary_uses_the_marker_rule_not_a_second_sql_copy():
@@ -60,10 +68,13 @@ def test_empty_window_is_twenty_four_zero_hours():
     assert body["hours"][-1]["hour"] == "2026-10-21 16:00:00"
 
 
-def _split(rows: list[CountRow]) -> tuple[list[CountRow], list[CountRow], list[CountRow]]:
+def _split(
+    rows: list[CountRow],
+) -> tuple[list[CountRow], dict[str, tuple[int, str]], list[CountRow], list[CountRow]]:
     rollups: dict[tuple[str, str, str], CountRow] = {}
     paths: dict[str, CountRow] = {}
-    probes = []
+    shares: dict[tuple[str, str, str], CountRow] = {}
+    slow: dict[str, CountRow] = {}
     for row in rows:
         key = (row.hour, row.edge_id, row.site_id)
         current = rollups.get(key)
@@ -74,11 +85,19 @@ def _split(rows: list[CountRow]) -> tuple[list[CountRow], list[CountRow], list[C
             row.site_id,
             row.count if current is None else current.count + row.count,
         )
-        clock = paths.get(row.path)
+        counted = paths.get(row.path)
+        paths[row.path] = CountRow(
+            row.path,
+            "",
+            "",
+            "",
+            row.count if counted is None else counted.count + row.count,
+        )
+        clock = slow.get(row.path)
         if clock is None:
-            paths[row.path] = CountRow(row.path, "", "", "", row.count, row.time_ms, row.max_ms)
+            slow[row.path] = CountRow(row.path, "", "", "", row.count, row.time_ms, row.max_ms)
         else:
-            paths[row.path] = CountRow(
+            slow[row.path] = CountRow(
                 row.path,
                 "",
                 "",
@@ -88,8 +107,16 @@ def _split(rows: list[CountRow]) -> tuple[list[CountRow], list[CountRow], list[C
                 max(clock.max_ms, row.max_ms),
             )
         if classify(row.path) is not None:
-            probes.append(row)
-    return list(rollups.values()), list(paths.values()), probes
+            share = shares.get(key)
+            shares[key] = CountRow(
+                "",
+                row.hour,
+                row.edge_id,
+                row.site_id,
+                row.count if share is None else share.count + row.count,
+            )
+    _names, markers = probe_counts(list(paths.values()))
+    return list(rollups.values()), markers, list(shares.values()), list(slow.values())
 
 
 def test_split_summary_matches_the_single_pass():
@@ -111,18 +138,26 @@ def test_split_summary_matches_the_single_pass():
 def test_summary_queries_do_not_encode_probe_rules():
     rollup, rollup_params = rollup_query(None)
     paths, path_params = path_query(None)
+    slow, slow_params = slow_query(None, SLOW_PATHS)
     probes, probe_params = probe_query(["f274178d", "abcd1234"], ["/.env", "/o'hare"])
     assert rollup_params == {}
     assert path_params == {}
+    assert slow_params == {}
     assert "path" not in rollup
     assert "GROUP BY hour, edge_id, site_id" in rollup
-    assert "sum(request_time_ms)" in paths
-    assert "max(request_time_ms)" in paths
+    assert "sum(request_time_ms)" not in paths
     assert "GROUP BY path" in paths
     assert "hour" not in paths
+    assert "sum(request_time_ms)" in slow
+    assert "max(request_time_ms)" in slow
+    assert "GROUP BY path" in slow
+    assert "hour" not in slow
+    assert f"LIMIT {SLOW_PATHS}" in slow
+    assert "GROUP BY hour, edge_id, site_id" in probes
+    assert "GROUP BY path" not in probes
     assert "path IN {probe_paths:Array(String)}" in probes
     assert "host_id IN ('f274178d', 'abcd1234')" in probes
-    for sql in (rollup, paths, probes):
+    for sql in (rollup, paths, slow, probes):
         assert "phpmyadmin" not in sql
         assert "/.env" not in sql
     assert "/.env" in probe_params["probe_paths"]
@@ -131,8 +166,12 @@ def test_summary_queries_do_not_encode_probe_rules():
     scoped, scoped_params = rollup_query(["f274178d"])
     assert scoped_params == {}
     assert "host_id IN ('f274178d')" in scoped
+    scoped_slow, _slow_params = slow_query(["f274178d"], SLOW_PATHS)
+    assert "host_id IN ('f274178d')" in scoped_slow
     with pytest.raises(ValueError):
         path_query(["bad site"])
+    with pytest.raises(ValueError):
+        slow_query(["bad site"], SLOW_PATHS)
     with pytest.raises(ValueError):
         rollup_query([])
 
@@ -224,6 +263,7 @@ def test_one_summary_is_shared_for_a_second(monkeypatch):
 
     monkeypatch.setattr("app.observation.service.rollup_rows", rows)
     monkeypatch.setattr("app.observation.service.path_rows", paths)
+    monkeypatch.setattr("app.observation.service.slow_rows", lambda *_args: [])
     monkeypatch.setattr("app.observation.service.probe_rows", probes)
     monkeypatch.setattr("app.observation.service.country_rows", lambda _host_ids: [])
     monkeypatch.setattr("app.observation.service.open_country_rows", lambda _host_ids: [])

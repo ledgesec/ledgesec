@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from app.codes import Code
 from app.observation.addresses import address_panel
 from app.observation.geo import noted_country, tally_countries
-from app.observation.markers import classify, marker_body
+from app.observation.markers import marker_body
 from app.observation.page import (
     FIND_LIMIT,
     PAGE,
@@ -29,11 +29,18 @@ from app.observation.repository import (
     rate_rows,
     rollup_rows,
     series_rows,
+    slow_rows,
 )
-from app.observation.summary import CountRow, summarize_parts, with_rates
+from app.observation.summary import (
+    SLOW_PATHS,
+    CountRow,
+    probe_counts,
+    summarize_parts,
+    with_rates,
+)
 
 SUMMARY_SHARE_SECONDS = 1
-SUMMARY_READS = 5
+SUMMARY_READS = 6
 
 _summary_cache: dict[str, tuple[float, dict]] = {}
 _summary_lock = threading.Lock()
@@ -78,36 +85,26 @@ def _count_row(row: dict) -> CountRow:
     )
 
 
-def _probe_names(rows: list[dict]) -> list[str]:
-    names = []
-    seen: set[str] = set()
-    for row in rows:
-        path = str(row.get("path") or "")
-        if path in seen:
-            continue
-        seen.add(path)
-        if classify(path) is not None:
-            names.append(path)
-    return names
-
-
 def _build_summary(host_ids: list[str] | None) -> dict:
     with ThreadPoolExecutor(max_workers=SUMMARY_READS) as pool:
         grouped = pool.submit(rollup_rows, host_ids)
         by_path = pool.submit(path_rows, host_ids)
+        slowed = pool.submit(slow_rows, host_ids, SLOW_PATHS)
         countries = pool.submit(country_rows, host_ids)
         pending = pool.submit(open_country_rows, host_ids)
         rates = pool.submit(rate_rows, host_ids)
-        found_paths = by_path.result()
-        probes = probe_rows(host_ids, _probe_names(found_paths))
+        names, markers = probe_counts([_count_row(row) for row in by_path.result()])
+        shares = probe_rows(host_ids, names)
         places = tally_countries(countries.result(), pending.result())
         found = rates.result()
         rollups = grouped.result()
+        slow_found = slowed.result()
     return with_rates(
         summarize_parts(
             [_count_row(row) for row in rollups],
-            [_count_row(row) for row in found_paths],
-            [_count_row(row) for row in probes],
+            markers,
+            [_count_row(row) for row in shares],
+            [_count_row(row) for row in slow_found],
         ),
         found,
         places,

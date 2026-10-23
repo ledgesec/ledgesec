@@ -393,16 +393,9 @@ class _Compiled:
     code: str
     label: str
     exact: frozenset[str]
-    prefixes: tuple[tuple[int, frozenset[str]], ...]
-    suffixes: tuple[tuple[int, frozenset[str]], ...]
+    prefixes: tuple[str, ...]
+    suffixes: tuple[str, ...]
     contains: tuple[str, ...]
-
-
-def _lengths(values: tuple[str, ...]) -> tuple[tuple[int, frozenset[str]], ...]:
-    grouped: dict[int, set[str]] = {}
-    for value in values:
-        grouped.setdefault(len(value), set()).add(value)
-    return tuple((length, frozenset(group)) for length, group in grouped.items())
 
 
 def _compile(rule: ProbeRule) -> _Compiled:
@@ -410,8 +403,8 @@ def _compile(rule: ProbeRule) -> _Compiled:
         rule.code,
         rule.label,
         frozenset(rule.exact),
-        _lengths(rule.prefixes),
-        _lengths(rule.suffixes),
+        rule.prefixes,
+        rule.suffixes,
         rule.contains,
     )
 
@@ -435,13 +428,10 @@ def _compiled_rules() -> tuple[_Compiled, ...]:
 def _hit(path: str, rule: _Compiled) -> bool:
     if path in rule.exact:
         return True
-    size = len(path)
-    for length, group in rule.prefixes:
-        if size >= length and path[:length] in group:
-            return True
-    for length, group in rule.suffixes:
-        if size >= length and path[-length:] in group:
-            return True
+    if rule.prefixes and path.startswith(rule.prefixes):
+        return True
+    if rule.suffixes and path.endswith(rule.suffixes):
+        return True
     return any(piece in path for piece in rule.contains)
 
 
