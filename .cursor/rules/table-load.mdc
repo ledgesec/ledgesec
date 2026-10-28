@@ -1,16 +1,16 @@
 ---
-description: Поиск и фильтр оставляют строки на месте, затемняют таблицу и ставят на неё один загрузчик.
+description: Search and filter leave the rows in place, dim the table, and put one loader on it.
 globs: web/**/*.{tsx,ts}
 alwaysApply: false
 ---
 
-# Загрузка таблицы
+# Table loading
 
-Поиск и фильтр, когда строки уже на экране, таблицу скелетоном не подменяют. Строки остаются. Тело таблицы затемняется, и на самой таблице виден один загрузчик.
+Search and filter, when rows are already on screen, do not replace the table with a skeleton. The rows stay. The table body dims, and one loader is visible on the table itself.
 
-Поле поиска, шапка таблицы и подпись страницы не затемняются. Пустой ответ и ошибка остаются текстом. Обновление журнала по таймеру загрузчик не включает. Первый заход, когда строк ещё нет, по-прежнему скелетон.
+The search field, the table header, and the page caption are not dimmed. An empty response and an error stay as text. A timed journal refresh does not turn the loader on. The first visit, when there are no rows yet, is still a skeleton.
 
-Загрузчик один, в `HoldRegion`. Вторую библиотеку и второй спиннер не добавлять. Знак — одна полоска `Skeleton` по центру таблицы, поверх затемнённых строк. Регион помечается `aria-busy`.
+There is one loader, in `HoldRegion`. Do not add a second library or a second spinner. The mark is one `Skeleton` bar in the center of the table, over the dimmed rows. The region is marked `aria-busy`.
 
 ```tsx
 <HoldRegion held={held}>{rows}</HoldRegion>

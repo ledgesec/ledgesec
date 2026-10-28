@@ -58,10 +58,20 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
   --animate-request-arrive: request-arrive 1.4s ease-out;
+  --animate-probe-arrive: probe-arrive 1.4s ease-out;
 
   @keyframes request-arrive {
     from {
       background-color: #1a5c3a;
+    }
+    to {
+      background-color: transparent;
+    }
+  }
+
+  @keyframes probe-arrive {
+    from {
+      background-color: #ff3366;
     }
     to {
       background-color: transparent;
@@ -508,7 +518,8 @@
   .site .spot-a,
   .site .spot-b,
   .site .spot-c,
-  .site .spot-d {
+  .site .spot-d,
+  .animate-probe-arrive {
     animation: none;
   }
 

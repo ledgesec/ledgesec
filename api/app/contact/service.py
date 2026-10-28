@@ -5,8 +5,9 @@ import re
 import time
 import urllib.error
 import urllib.request
+from typing import Self
 
-from pydantic import BaseModel, ValidationError, field_validator
+from pydantic import BaseModel, ValidationError, field_validator, model_validator
 
 from app.codes import Code
 from app.errors import ApiError
@@ -22,18 +23,45 @@ CONTACT_WINDOW = 3600
 TELEGRAM_TIMEOUT = 15
 TOKEN_ENV = "TELEGRAM_BOT_TOKEN"
 CHAT_ENV = "TELEGRAM_CHAT_ID"
+CHANNEL_EMAIL = "email"
+CHANNEL_TELEGRAM = "telegram"
+CHANNEL_WHATSAPP = "whatsapp"
+CHANNEL_LABEL = {
+    CHANNEL_EMAIL: "Email",
+    CHANNEL_TELEGRAM: "Telegram",
+    CHANNEL_WHATSAPP: "WhatsApp",
+}
+TELEGRAM_NAME = re.compile(r"^@?[A-Za-z][A-Za-z0-9_]{4,31}$")
+PHONE = re.compile(r"^\+?[0-9][0-9 -]{6,18}$")
 
 _seen: dict[str, list[float]] = {}
 
 
 class ContactNote(BaseModel):
     name: str
-    email: str
+    email: str = ""
+    reach: str = ""
+    channel: str = CHANNEL_EMAIL
     host: str = ""
     message: str
     interest: str = ""
 
-    @field_validator("name", "email", "host", "message", "interest", mode="before")
+    @model_validator(mode="before")
+    @classmethod
+    def lift_email(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        updated = dict(data)
+        reach = updated.get("reach")
+        email = updated.get("email")
+        if not (isinstance(reach, str) and reach.strip()) and isinstance(email, str):
+            updated["reach"] = email
+        channel = updated.get("channel")
+        if not isinstance(channel, str) or not channel.strip():
+            updated["channel"] = CHANNEL_EMAIL
+        return updated
+
+    @field_validator("name", "email", "reach", "channel", "host", "message", "interest", mode="before")
     @classmethod
     def strip(cls, value: object) -> str:
         if not isinstance(value, str):
@@ -47,15 +75,11 @@ class ContactNote(BaseModel):
             raise ValueError
         return value
 
-    @field_validator("email")
-    @classmethod
-    def email_ok(cls, value: str) -> str:
-        if len(value) > EMAIL_MAX or " " in value or value.count("@") != 1:
+    @model_validator(mode="after")
+    def reach_ok(self) -> Self:
+        if self.channel not in CHANNEL_LABEL or not _reach_matches(self.channel, self.reach):
             raise ValueError
-        local, domain = value.split("@")
-        if not local or "." not in domain or domain.startswith(".") or domain.endswith("."):
-            raise ValueError
-        return value
+        return self
 
     @field_validator("host")
     @classmethod
@@ -102,12 +126,29 @@ def admit_contact(ip: str, now: float | None = None) -> None:
     _seen[ip] = recent
 
 
+def _email_ok(value: str) -> bool:
+    if len(value) > EMAIL_MAX or " " in value or value.count("@") != 1:
+        return False
+    local, domain = value.split("@")
+    return bool(local) and "." in domain and not domain.startswith(".") and not domain.endswith(".")
+
+
+def _reach_matches(channel: str, value: str) -> bool:
+    if channel == CHANNEL_EMAIL:
+        return _email_ok(value)
+    if channel == CHANNEL_TELEGRAM:
+        return TELEGRAM_NAME.fullmatch(value) is not None or PHONE.fullmatch(value) is not None
+    if channel == CHANNEL_WHATSAPP:
+        return PHONE.fullmatch(value) is not None
+    return False
+
+
 def format_note(note: ContactNote) -> str:
     lines = [
         "[ledgesec.com]",
         "<b>Demo</b>",
         f"<b>Name:</b> {html.escape(note.name)}",
-        f"<b>Email:</b> {html.escape(note.email)}",
+        f"<b>{CHANNEL_LABEL[note.channel]}:</b> {html.escape(note.reach)}",
     ]
     if note.host:
         lines.append(f"<b>Host:</b> {html.escape(note.host)}")

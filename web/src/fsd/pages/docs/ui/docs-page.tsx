@@ -20,6 +20,8 @@ import {
 } from "@/fsd/pages/docs/connect";
 import { SiteFrame } from "@/fsd/pages/site/frame";
 import { PAGE_AFTER, PAGE_H2, PAGE_H3, PAGE_KICKER, PAGE_LEDE, PAGE_MAIN, PAGE_SECTION, PAGE_TITLE } from "@/fsd/pages/site/space";
+import { DIAGRAM_DOCS } from "@/fsd/pages/site/diagrams";
+import { SiteDiagram } from "@/fsd/pages/site/ui/site-diagram";
 
 function Box({ title, body }: { title: string; body?: string }) {
   return (
@@ -37,6 +39,7 @@ export function DocsPage({ host }: { host: string }) {
         <p className={PAGE_KICKER}>{DOCS_KICKER}</p>
         <h1 className={PAGE_TITLE}>{DOCS_TITLE}</h1>
         <p className={PAGE_LEDE}>{DOCS_LEDE}</p>
+        <SiteDiagram name={DIAGRAM_DOCS} />
         <figure className={PAGE_AFTER}>
           <div className="grid gap-3">
             <Box title={DIAGRAM_VISITOR} />
@@ -63,13 +66,13 @@ export function DocsPage({ host }: { host: string }) {
         <h2 className={`${PAGE_SECTION} ${PAGE_H2}`}>{SHARED_TITLE}</h2>
         <p className="mt-4 max-w-3xl text-muted-foreground">{SHARED_BODY}</p>
         <p className="mt-4 font-mono text-xs text-muted-foreground">{AGENT_ENV}</p>
-        <pre className="mt-4 overflow-x-auto border border-border bg-card p-5 font-mono text-xs leading-6">{AGENT_FILE}</pre>
-        <div className={`${PAGE_SECTION} grid gap-16`}>
+        <pre className="mt-4 max-w-full overflow-x-auto border border-border bg-card p-5 font-mono text-xs leading-6">{AGENT_FILE}</pre>
+        <div className={`${PAGE_SECTION} grid min-w-0 gap-16`}>
           {CONNECTIONS.map((item) => (
-            <section key={item.title}>
+            <section key={item.title} className="min-w-0">
               <h2 className={PAGE_H3}>{item.title}</h2>
               <p className="mt-4 max-w-3xl text-muted-foreground">{item.body}</p>
-              <pre className="mt-4 overflow-x-auto border border-border bg-card p-5 font-mono text-xs leading-6">{item.code}</pre>
+              <pre className="mt-4 max-w-full overflow-x-auto border border-border bg-card p-5 font-mono text-xs leading-6">{item.code}</pre>
             </section>
           ))}
         </div>

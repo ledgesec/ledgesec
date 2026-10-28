@@ -1,14 +1,14 @@
 ---
-description: Поиск таблицы ждёт паузу. Пока ответ не пришёл, на таблице загрузчик и затемнение.
+description: Table search waits for a pause. Until the response arrives, the table has a loader and a dim.
 globs: web/**/*.{tsx,ts}
 alwaysApply: false
 ---
 
-# Поиск
+# Search
 
-Поиск таблицы не уходит на каждый символ. Поле сразу показывает черновик. В адрес страницы и в запрос уходит последнее значение, но не чаще чем раз в `FIND_WAIT_MS`. Число одно, рядом с поиском. Фильтр выбора ждёт ноль и уходит сразу.
+Table search does not fire on every character. The field shows the draft at once. The page address and the request receive the latest value, but not more often than once per `FIND_WAIT_MS`. The number is one, next to the search. A choice filter waits zero and fires at once.
 
-Пока поиск или фильтр ещё не дошёл до уже показанной таблицы, на ней загрузчик и затемнение. Правило в `table-load.mdc`. Поле поиска и шапка не приглушаются. Пустой ответ и ошибка остаются текстом. Обновление журнала по таймеру загрузчик не включает.
+While search or a filter has not yet reached a table already on screen, that table has a loader and a dim. The rule is in `table-load.mdc`. The search field and the header are not dimmed. An empty response and an error stay as text. A timed journal refresh does not turn the loader on.
 
 ```tsx
 const [draft, setDraft, applied, held] = useField(QUERY);

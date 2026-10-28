@@ -3,6 +3,8 @@ import { PRODUCT_TITLE } from "@/fsd/pages/product/copy";
 import { LABEL_DEMO, PATH_DEMO, PATH_PRODUCT } from "@/fsd/pages/site/nav";
 import { SiteFrame } from "@/fsd/pages/site/frame";
 import { PAGE_AFTER, PAGE_CARD, PAGE_CTA, PAGE_H3, PAGE_KICKER, PAGE_LEDE, PAGE_MAIN, PAGE_SECTION, PAGE_TITLE } from "@/fsd/pages/site/space";
+import { DIAGRAM_ABOUT } from "@/fsd/pages/site/diagrams";
+import { SiteDiagram } from "@/fsd/pages/site/ui/site-diagram";
 import { marketingHref } from "@/shared/lib/hosts";
 import Link from "next/link";
 
@@ -13,6 +15,7 @@ export function AboutPage({ host }: { host: string }) {
         <p className={PAGE_KICKER}>{ABOUT_KICKER}</p>
         <h1 className={PAGE_TITLE}>{ABOUT_TITLE}</h1>
         <p className={PAGE_LEDE}>{ABOUT_LEDE}</p>
+        <SiteDiagram name={DIAGRAM_ABOUT} />
         <div className={`${PAGE_AFTER} grid gap-4 md:grid-cols-2`}>
           {ABOUT_SECTIONS.map((section) => (
             <section key={section.title} className={PAGE_CARD}>

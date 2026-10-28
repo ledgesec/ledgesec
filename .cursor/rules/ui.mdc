@@ -1,30 +1,30 @@
 ---
-description: Интерфейс Ledgesec на Next.js, shadcn/ui и Feature-Sliced Design.
+description: The Ledgesec interface on Next.js, shadcn/ui, and Feature-Sliced Design.
 globs: "**/*.{tsx,ts,css}"
 alwaysApply: false
 ---
 
-# Интерфейс
+# Interface
 
-Сайт, блог и дашборд — одно приложение Next.js, TypeScript, Tailwind и shadcn/ui.
+The site, the blog, and the dashboard are one Next.js application, TypeScript, Tailwind, and shadcn/ui.
 
-- Кнопки, поля, диалоги, меню и таблицы брать из shadcn. Свои примитивы не рисовать.
-- Вторую библиотеку компонентов не подключать.
-- Текст живой, без заглушек. Пустое состояние и ошибка есть у каждого экрана, который читает данные. Пока значения из API ещё не пришли, их место занимает скелетон той же формы — правило в `skeleton.mdc`. Поиск таблицы ждёт паузу — правило в `search.mdc`. Пока ответ поиска или фильтра не пришёл, на уже показанной таблице загрузчик и затемнение — правило в `table-load.mdc`. Запрос, который может сменить более новый, отменяется через `AbortController` — правило в `abort.mdc`. Кнопка записи на время запроса показывает загрузчик и не нажимается — правило в `button-pending.mdc`.
-- Сайт и блог — бумажная тема. Оба кабинета берут оболочку из купленного Threatrix, правило в `theme.mdc`. Свою тёмную тему рядом не рисовать.
-- Клиент входит на `dash`. Админ входит на `admin.ledgesec.com`. Локально это `/dashboard` и `/admin`.
-- Сайдбар кабинета показывает номер из `VERSION`. В `package.json` этот номер не копировать.
-- Зонд виден без чтения подписи: отдельная метка и выделение строки. Метку брать из ответа API. Второй, более короткий список путей в клиенте источником правила не делать.
-- Адрес посетителя не появляется на сайте, в блоге и у пользователя сайта.
+- Take buttons, fields, dialogs, menus, and tables from shadcn. Do not draw custom primitives.
+- Do not connect a second component library.
+- Copy is real, with no placeholders. Every screen that reads data has an empty state and an error. Until values have arrived from the API, their place is a skeleton of the same shape — the rule is in `skeleton.mdc`. Table search waits for a pause — the rule is in `search.mdc`. Until the search or filter response arrives, the table already on screen gets a loader and a dim — the rule is in `table-load.mdc`. A request that a newer one can replace is cancelled with `AbortController` — the rule is in `abort.mdc`. A write button shows a loader for the request and cannot be pressed — the rule is in `button-pending.mdc`.
+- The public site and the blog use the dark site theme. Both cabinets take their shell from the purchased Threatrix template; the rule is in `theme.mdc`. Do not draw a second dark shell beside it.
+- A customer signs in on `dash`. An admin signs in on `admin.ledgesec.com`. Locally those are `/dashboard` and `/admin`.
+- The cabinet sidebar shows the number from `VERSION`. Do not copy that number into `package.json`.
+- A probe is visible without reading the caption: a separate mark and a highlighted row. Take the mark from the API response. Do not make a second, shorter path list in the client the source of the rule.
+- A visitor address does not appear on the site, in the blog, or for a site user.
 
-FSD. Слои сверху вниз: `pages`, `widgets`, `features`, `entities`, `shared`. Импорт только вниз. Соседние фичи друг друга не импортируют. `shared` не знает про вход и журнал.
+FSD. Layers from top to bottom: `pages`, `widgets`, `features`, `entities`, `shared`. Import only downward. Neighboring features do not import each other. `shared` does not know about sign-in or the journal.
 
-Каталог `app/` в Next.js — только маршруты. Страница оттуда вызывает слой `pages` и больше ничего. Слайсы лежат рядом, не внутри `app/`.
+The Next.js `app/` directory is routes only. A page there calls the `pages` layer and nothing else. Slices sit beside it, not inside `app/`.
 
-- `pages` — сайт, блог, дашборд. Каталог `src/fsd/pages`: Next.js занимает имя `src/pages` под свой роутер.
-- `widgets` — оболочка кабинета, график часов, панель адресов и список запросов.
-- `features` — вход, выход, добавление хоста, метка зонда.
-- `entities` — наблюдение, адрес, пользователь.
-- `shared/ui` — компоненты shadcn.
+- `pages` — site, blog, dashboard. Directory `src/fsd/pages`: Next.js reserves the name `src/pages` for its own router.
+- `widgets` — the cabinet shell, the hour chart, the address panel, and the request list.
+- `features` — sign-in, sign-out, adding a host, a probe mark.
+- `entities` — observation, address, user.
+- `shared/ui` — shadcn components.
 
-FastAPI, Caddy и Lua в эти слои не раскладывать.
+Do not lay FastAPI, Caddy, and Lua out into these layers.

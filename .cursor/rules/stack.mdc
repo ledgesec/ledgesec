@@ -1,17 +1,17 @@
 ---
-description: Стек Ledgesec — FastAPI и Next.js.
+description: The Ledgesec stack is FastAPI and Next.js.
 alwaysApply: true
 ---
 
-# Стек
+# Stack
 
-Два приложения и ничего рядом.
+Two applications and nothing beside them.
 
-- API — FastAPI и Pydantic. Тело запроса и ответ — модели Pydantic. Журнал, сессия и доступ живут здесь. У каждого контекста свои service и repository: маршрут их не заменяет. Свой разбор JSON и маршрутизатор на `BaseHTTPRequestHandler` не писать. Flask, Django и второй HTTP-сервер не добавлять.
-- Postgres — SQLAlchemy 2.0. Сессия на один запрос. Модели: пользователи, сайты, состояние сертификата. Схему создаёт Alembic, не `create_all` и не второй скрипт. SQLModel и второй ORM не подключать.
-- ClickHouse — своим клиентом. Это журнал событий, не таблицы Postgres.
-- Сайт, блог и дашборд — одно приложение Next.js на App Router, TypeScript, Tailwind и shadcn/ui. Второй фронтенд и отдельный кабинет на nginx не заводить.
-- Формы Next.js проверяет Zod до запроса. Yup, Valibot и react-hook-form не подключать. Тело API остаётся Pydantic.
-- Caddy только маршрутизирует на эти приложения и на `us.ledgesec.com`. Модуль OpenResty остаётся Lua. Демон Linux — бинарник `ledgesec-agent` на машине заказчика: он читает журнал nginx или журнал прокси Coolify и сдаёт ту же пачку, своего HTTP-сервера у него нет.
+- The API is FastAPI and Pydantic. The request body and the response are Pydantic models. The journal, the session, and access live here. Each context has its own service and repository: a route does not replace them. Do not write a custom JSON parser or a router on `BaseHTTPRequestHandler`. Do not add Flask, Django, or a second HTTP server.
+- Postgres is SQLAlchemy 2.0. One session per request. Models: users, sites, certificate state. Alembic creates the schema, not `create_all` and not a second script. Do not connect SQLModel or a second ORM.
+- ClickHouse uses its own client. It is the event journal, not Postgres tables.
+- The site, the blog, and the dashboard are one Next.js application on the App Router, TypeScript, Tailwind, and shadcn/ui. Do not start a second frontend or a separate cabinet on nginx.
+- Next.js checks forms with Zod before the request. Do not connect Yup, Valibot, or react-hook-form. The API body stays Pydantic.
+- Caddy only routes to these applications and to `us.ledgesec.com`. The OpenResty module stays Lua. The Linux daemon is the `ledgesec-agent` binary on the customer's machine: it reads the nginx log or the Coolify proxy log and posts the same batch. It has no HTTP server of its own.
 
-Европа запускает оба приложения. В Нью-Йорк они не копируются.
+Europe runs both applications. They are not copied to New York.

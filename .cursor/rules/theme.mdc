@@ -1,14 +1,14 @@
 ---
-description: Кабинет берёт вид из купленного Threatrix, а не рисует оболочку заново.
+description: The cabinet takes its look from the purchased Threatrix template instead of drawing a shell again.
 alwaysApply: true
 ---
 
-# Тема кабинета
+# Cabinet theme
 
-Оболочка обоих кабинетов — купленный шаблон Threatrix. Архив лежит в репозитории: `theme/threatrix.zip`. Исходники внутри — `Threatrix/Main_File`. Сайдбар, шапка, карточки, графики и таблицы брать оттуда (`src/components/layout`, `src/components/ui`, `src/index.css`, `tailwind.config.js`) и переносить в это приложение Next.js.
+The shell of both cabinets is the purchased Threatrix template. The archive is in the repository: `theme/threatrix.zip`. The sources inside are `Threatrix/Main_File`. Take the sidebar, header, cards, charts, and tables from there (`src/components/layout`, `src/components/ui`, `src/index.css`, `tailwind.config.js`) and move them into this Next.js application.
 
-- Второе приложение не поднимать. Vite-шаблон и `Ready_To_Deploy` не запускать. В образ кабинета архив не класть.
-- Свою тёмную оболочку рядом не рисовать. Новый экран кабинета повторяет сетку, отступы, стекло и цвет Threatrix.
-- Сайт и блог остаются бумажной темой.
-- Данные только из журнала Ledgesec. Демо-числа и демо-экраны шаблона не подключать: карта атак, лента угроз, инциденты, уязвимости, endpoints, CPU, EPS, MTTD, MTTR, тарифы, роли аналитика, счётчик заблокированных угроз.
-- Кнопки, поля, диалоги и меню остаются shadcn. Цвет и каркас — из Threatrix. Вторую библиотеку компонентов не подключать.
+- Do not start a second application. Do not run the Vite template or `Ready_To_Deploy`. Do not put the archive in the cabinet image.
+- Do not draw a separate dark shell beside Threatrix. A new cabinet screen repeats the Threatrix grid, spacing, glass, and color.
+- The public site and the blog stay on the dark site theme.
+- Data comes only from the Ledgesec journal. Do not connect the template's demo numbers or demo screens: attack map, threat feed, incidents, vulnerabilities, endpoints, CPU, EPS, MTTD, MTTR, plans, analyst roles, blocked-threat counter.
+- Buttons, fields, dialogs, and menus stay shadcn. Color and frame come from Threatrix. Do not connect a second component library.

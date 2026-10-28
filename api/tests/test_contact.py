@@ -3,7 +3,14 @@ import json
 from fastapi.testclient import TestClient
 
 from app.codes import Code
-from app.contact.service import CONTACT_LIMIT, clear_contacts, format_note, parse_note
+from app.contact.service import (
+    CHANNEL_TELEGRAM,
+    CHANNEL_WHATSAPP,
+    CONTACT_LIMIT,
+    clear_contacts,
+    format_note,
+    parse_note,
+)
 from app.main import create_app
 
 NOTE = {
@@ -26,6 +33,22 @@ def test_a_note_escapes_markup() -> None:
     assert "<b>Ada</b>" not in text
     assert "&lt;b&gt;Ada&lt;/b&gt;" in text
     assert "shop.example" in text
+
+
+def test_a_reply_channel_is_named() -> None:
+    telegram = parse_note(json.dumps({**NOTE, "channel": CHANNEL_TELEGRAM, "reach": "@ada_ledger"}).encode())
+    assert "Telegram" in format_note(telegram)
+    assert "@ada_ledger" in format_note(telegram)
+    whatsapp = parse_note(json.dumps({**NOTE, "channel": CHANNEL_WHATSAPP, "reach": "+1 202 555 0100"}).encode())
+    text = format_note(whatsapp)
+    assert "WhatsApp" in text
+    assert "<b>Email:</b>" not in text
+    client = TestClient(create_app(prepare=False))
+    response = client.post("/v1/contact", json={**NOTE, "channel": "sms", "reach": "ada@shop.example"})
+    assert response.status_code == 400
+    assert response.json()["error"] == Code.BAD_BODY
+    refused = client.post("/v1/contact", json={**NOTE, "channel": CHANNEL_WHATSAPP, "reach": "@ada_ledger"})
+    assert refused.status_code == 400
 
 
 def test_interest_names_the_pain() -> None:

@@ -1,16 +1,16 @@
 ---
-description: Запрос кабинета, который может сменить более новый, отменяется через AbortController.
+description: A cabinet request that a newer one can replace is cancelled with AbortController.
 globs: web/**/*.{tsx,ts}
 alwaysApply: false
 ---
 
-# Отмена запроса
+# Request cancellation
 
-Запрос, который может сменить более новый, уходит с `AbortController`. Это поиск, фильтр, страница таблицы и уход с экрана. Новый заход отменяет предыдущий. Ответ отменённого запроса в состояние не пишется. `AbortError` ошибкой журнала не становится.
+A request that a newer one can replace goes out with `AbortController`. That is search, filter, a table page, and leaving the screen. A new visit cancels the previous one. The response of a cancelled request is not written into state. `AbortError` does not become a journal error.
 
-Сигнал передаётся в `fetch`. Свой флаг `cancelled` и второй таймер отмены рядом с тем же запросом не держать: отмена одна, через контроллер.
+The signal is passed to `fetch`. Do not keep a custom `cancelled` flag or a second cancel timer next to the same request: cancellation is one, through the controller.
 
-Контроллер живёт у того, кто вызывает чтение. Чтение журнала принимает `signal` и больше ничего про отмену не знает. Таймер обновления тоже отменяет свой предыдущий заход, когда интервал сменился или экран ушёл. Два ответа одной таблицы не применяются оба.
+The controller lives with the caller of the read. A journal read accepts `signal` and knows nothing else about cancellation. The refresh timer also cancels its previous visit when the interval changed or the screen left. Two responses of one table are not both applied.
 
 ```tsx
 const controller = new AbortController();

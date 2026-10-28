@@ -1,22 +1,22 @@
 ---
-description: Линтеры и тесты Ledgesec. Изменение не готово, пока они не прошли.
+description: Ledgesec linters and tests. A change is not done until they pass.
 alwaysApply: true
 ---
 
-# Линтеры и тесты
+# Linters and tests
 
-Изменение языка сопровождается тестом этого поведения и линтером этого языка. Второй прогонщик тестов или второй линтер для того же языка не добавлять. Живой ClickHouse, Postgres и Coolify в тесте не нужны.
+A change in a language comes with a test of that behavior and the linter for that language. Do not add a second test runner or a second linter for the same language. A live ClickHouse, Postgres, or Coolify is not needed in a test.
 
-Тесты:
+Tests:
 
-- Модуль заказчика и подпись: `cargo test` из корня репозитория. Он же запускает `lua5.4 module/check.lua`. Этот lua-файл запускать из `packages/customer-gate`, не из корня.
-- Метка зонда, разбор пути, сессия и сверка MAC проверяются рядом с функцией. Наружу уходит то же поведение, что в тесте.
-- Падающий тест не отключать и не пропускать. Починить код или поправить ожидание, если сменилось решённое поведение.
+- The customer module and the signature: `cargo test` from the repository root. It also runs `lua5.4 module/check.lua`. Run that lua file from `packages/customer-gate`, not from the root.
+- The probe mark, path parsing, the session, and the MAC check are tested next to the function. What ships is the same behavior as the test.
+- Do not disable or skip a failing test. Fix the code, or fix the expectation when the decided behavior changed.
 
-Линтеры, только по затронутому языку:
+Linters, only for the language that was touched:
 
 - Rust: `cargo clippy -p ledgesec-gate --all-targets -- -D warnings`
-- Python и FastAPI: `ruff check` и `pytest` в каталоге API. Второй тестовый прогонщик для Python не добавлять.
-- Next.js: `eslint` из каталога приложения, без отдельного стилевого пакета.
+- Python and FastAPI: `ruff check` and `pytest` in the API directory. Do not add a second Python test runner.
+- Next.js: `eslint` from the application directory, without a separate style package.
 
-Замечание линтера не глушить на весь файл. Подавление, если без него нельзя, стоит на одной строке и называет причину.
+Do not silence a linter note for a whole file. A suppression, when it cannot be avoided, sits on one line and names the reason.

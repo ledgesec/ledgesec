@@ -1,17 +1,17 @@
 ---
-description: Формы Next.js проверяет Zod до запроса. API остаётся на Pydantic.
+description: Next.js checks forms with Zod before the request. The API stays on Pydantic.
 globs: web/**/*.{ts,tsx}
 alwaysApply: false
 ---
 
-# Формы
+# Forms
 
-Каждая форма в `web/` проходит схему Zod до запроса. Схема лежит в фиче рядом с формой.
+Every form in `web/` passes a Zod schema before the request. The schema lives in the feature, next to the form.
 
-- Обработчик вызывает `safeParse` и отправляет только разобранные поля. Сырой `FormData` в API не уходит.
-- Текст ошибки поля берётся из схемы. Второй набор `if` в обработчике не писать. `required` у поля эту схему не заменяет: у формы `noValidate`.
-- Сообщение поля стоит `absolute` у поля. Появление ошибки не меняет высоту карточки.
-- Yup, Valibot и react-hook-form не подключать.
-- Тело API остаётся моделью Pydantic. Zod в FastAPI не ставить.
-- Кнопка, которая отправляет запись, на время запроса показывает загрузчик и не нажимается — правило в `button-pending.mdc`.
-- Поведение схемы покрыто тестом рядом с файлом схемы.
+- The handler calls `safeParse` and sends only the parsed fields. Raw `FormData` does not go to the API.
+- The field error text comes from the schema. Do not write a second set of `if`s in the handler. `required` on a field does not replace this schema: the form has `noValidate`.
+- The field message is `absolute` on the field. Showing an error does not change the card height.
+- Do not connect Yup, Valibot, or react-hook-form.
+- The API body stays a Pydantic model. Do not put Zod in FastAPI.
+- A button that submits a write shows a loader for the request and cannot be pressed — the rule is in `button-pending.mdc`.
+- The schema behavior is covered by a test next to the schema file.

@@ -1,42 +1,42 @@
 ---
-description: DRY, KISS, SOLID и DDD для кода Ledgesec.
+description: DRY, KISS, SOLID, and DDD for Ledgesec code.
 alwaysApply: true
 ---
 
-# Как писать код
+# How to write code
 
-KISS. Менять только то, что просит задача. Новый процесс, базу, библиотеку или экран не добавлять, пока без них нельзя выполнить запрос. Service в API — модуль сценария, не отдельный процесс и не контейнер.
+KISS. Change only what the task asks for. Do not add a process, database, library, or screen until the request cannot be done without it. A service in the API is a scenario module, not a separate process and not a container.
 
-DRY. Одно правило живёт в одном месте.
+DRY. One rule lives in one place.
 
-- Метка зонда — одно правило домена в наблюдении и считается при чтении. В ClickHouse лежит путь. Список шаблонов живёт в Postgres. Сравнение с путём в запрос журнала не копировать. Новая метка — строка этого списка, не ветка маршрута.
-- Сессия, пароль и приём пачки не делят один секрет.
-- Европейский и нью-йоркский compose не сливать в один файл.
-- Пример nginx для клиента не дублировать в кабинет.
-- Код ошибки, который сравнивают или отдают в ответе, живёт константой. В API это `app/codes.py`, в кабинете — `shared/lib/api-error.ts`. На месте вызова такую строку не писать.
-- Строка, по которой ветвятся или которую сравнивают, живёт константой своего контекста. Роль — рядом с доступом, в кабинете `shared/lib/role.ts`. Направление страницы `next` и `prev` — рядом с журналом. Сборщик — в одном множестве. В JSX и в маршруте литерал не писать: `mode === "admin"` берёт константу роли. Фраза, которую человек видит второй раз, тоже константа. Один раз на экране остаётся у компонента. Второй каталог строк и локализацию не заводить.
-- Число, которым режут выдачу или сравнивают, живёт одной константой рядом с правилом. Размер страницы журнала — одно число на язык. В маршруте, SQL и тесте сырое число не копировать.
-- Имя поля, которое читает другая сторона, живёт константой на своей стороне. Общий пакет для API и кабинета не заводить.
-- Тест ждёт ту же константу, не вторую копию строки или числа. Файл не переписывать целиком только чтобы перенести старый литерал: его забирают, когда файл и так меняют.
+- A probe mark is one domain rule in observation and is computed when the journal is read. ClickHouse stores the path. The template list lives in Postgres. Do not copy the path comparison into the journal query. A new mark is a row in that list, not a branch of the route.
+- Session, password, and batch ingest do not share one secret.
+- Do not merge the European and New York compose files into one file.
+- Do not duplicate the customer nginx example in the cabinet.
+- An error code that is compared or returned lives as a constant. In the API that is `app/codes.py`. In the cabinet it is `shared/lib/api-error.ts`. Do not write that string at the call site.
+- A string that a branch or a comparison uses lives as a constant of its context. A role sits next to access, in the cabinet at `shared/lib/role.ts`. The page directions `next` and `prev` sit next to the journal. A collector lives in one set. Do not write the literal in JSX or in a route: `mode === "admin"` uses the role constant. A phrase a person sees a second time is a constant too. A phrase that appears once on a screen stays with the component. Do not start a second string catalog or localization.
+- A number that cuts a result or is compared lives as one constant next to the rule. The journal page size is one number per language. Do not copy the raw number into the route, SQL, and the test.
+- A field name the other side reads lives as a constant on its own side. Do not create a shared package for the API and the cabinet.
+- A test expects the same constant, not a second copy of the string or number. Do not rewrite a whole file only to move an old literal: take it when the file is already being changed.
 
-SOLID, как это ложится на репозиторий.
+SOLID, as it lands in this repository.
 
-- Край только маршрутизирует. FastAPI пишет и читает журнал и доступ. Модуль заказчика только записывает строку. Next.js не ходит в ClickHouse.
-- Новый код решения или новая метка добавляются отдельно и не переписывают приём пачки.
-- Пользователь и админ входят одной сессией. Чужой метод админа пользователю недоступен.
-- Приём наблюдений, вход и чтение журнала — разные маршруты.
-- У контекста API два слоя. Маршрут разбирает запрос, вызывает service и переводит ошибку в код HTTP. Service решает сценарий и вызывает repository своего контекста. Чужой контекст service вызывает через его service. Repository только читает и пишет: Postgres через SQLAlchemy, журнал через клиент ClickHouse.
-- В маршруте нет SQL и правила продукта. В service нет FastAPI, SQL и текста запроса ClickHouse. В repository нет правила продукта и FastAPI.
-- Кабинет Next.js остаётся на своих фичах. Свой repository на фронте не заводить.
-- Обработчик зависит от service своего контекста, не от панели Coolify и не от браузера.
+- The edge only routes. FastAPI writes and reads the journal and access. The customer module only writes the row. Next.js does not talk to ClickHouse.
+- New decision code or a new mark is added separately and does not rewrite batch ingest.
+- A user and an admin sign in with one session. An admin method is not available to a user.
+- Accepting observations, signing in, and reading the journal are different routes.
+- An API context has two layers. The route parses the request, calls the service, and turns an error into an HTTP code. The service decides the scenario and calls the repository of its own context. A service calls another context through that context's service. A repository only reads and writes: Postgres through SQLAlchemy, the journal through the ClickHouse client.
+- A route has no SQL and no product rule. A service has no FastAPI, no SQL, and no ClickHouse query text. A repository has no product rule and no FastAPI.
+- The Next.js cabinet stays on its features. Do not create a repository on the frontend.
+- A handler depends on the service of its context, not on the Coolify panel and not on the browser.
 
-Браузер говорит только с API через край. Nginx-воркеры в ClickHouse не пишут.
+The browser talks only to the API through the edge. Nginx workers do not write to ClickHouse.
 
-DDD. Четыре контекста, у каждого свой язык. Слова не подменять и контексты не смешивать. Домен не импортирует FastAPI. Маршрут склеивает контексты через их service и отдаёт модель Pydantic.
+DDD. Four contexts, each with its own language. Do not swap the words and do not mix the contexts. The domain does not import FastAPI. A route joins contexts through their services and returns a Pydantic model.
 
-- Край: хост, сертификат, маршрут. Журнала здесь нет.
-- Наблюдение: событие, путь, край, сайт, зонд, решение `allow` и причина `observe`. Живёт в ClickHouse. Строка после записи не меняется.
-- Доступ: админ, пользователь, сайт, сессия. Живёт в Postgres. Схему журнала не описывает.
-- Модуль заказчика: заметка и подпись пачки. Решение challenge или deny он не принимает.
+- Edge: host, certificate, route. There is no journal here.
+- Observation: event, path, edge, site, probe, decision `allow`, and reason `observe`. It lives in ClickHouse. A row does not change after it is written.
+- Access: admin, user, site, session. It lives in Postgres. It does not describe the journal schema.
+- Customer module: the batch note and signature. It does not decide challenge or deny.
 
-Дашборд читает наблюдение и доступ только через API. Модуль публикует пачку в приём наблюдений и больше никуда.
+The dashboard reads observation and access only through the API. The module publishes a batch to observation ingest and nowhere else.

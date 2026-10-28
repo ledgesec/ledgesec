@@ -19,6 +19,8 @@ import {
 import { LABEL_DEMO, LABEL_FUTURE, PATH_DOCS, PATH_FUTURE } from "@/fsd/pages/site/nav";
 import { SiteFrame } from "@/fsd/pages/site/frame";
 import { PAGE_AFTER, PAGE_CARD, PAGE_H2, PAGE_KICKER, PAGE_LEDE, PAGE_MAIN, PAGE_MARK, PAGE_SECTION, PAGE_TITLE } from "@/fsd/pages/site/space";
+import { DIAGRAM_PRICING } from "@/fsd/pages/site/diagrams";
+import { SiteDiagram } from "@/fsd/pages/site/ui/site-diagram";
 import { marketingHref } from "@/shared/lib/hosts";
 
 function Points({ items }: { items: readonly string[] }) {
@@ -40,6 +42,7 @@ export function PricingPage({ host }: { host: string }) {
         <p className={PAGE_KICKER}>{PRICING_KICKER}</p>
         <h1 className={PAGE_TITLE}>{PRICING_TITLE}</h1>
         <p className={PAGE_LEDE}>{PRICING_LEDE}</p>
+        <SiteDiagram name={DIAGRAM_PRICING} />
         <div className={`${PAGE_AFTER} grid gap-4 lg:grid-cols-2`}>
           <section className={`${PAGE_CARD} rise`}>
             <p className={PAGE_MARK}>{SELF_PRICE}</p>

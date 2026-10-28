@@ -1,14 +1,14 @@
 ---
-description: Кнопка записи на время запроса показывает загрузчик и не нажимается.
+description: A write button shows a loader for the request and cannot be pressed.
 globs: web/**/*.{tsx,ts}
 alwaysApply: false
 ---
 
-# Кнопка записи
+# Write button
 
-Кнопка, которая отправляет запись, на время запроса показывает загрузчик и не нажимается. Запись — это сохранение, добавление, удаление и вход: POST и такой же коммит. Подпись кнопки не меняется.
+A button that submits a write shows a loader for the request and cannot be pressed. A write is a save, an add, a delete, and a sign-in: POST and the same kind of commit. The button label does not change.
 
-Загрузчик один, проп `pending` у `Button`. Знак — `ButtonPending`. Вторую иконку и вторую библиотеку не добавлять. Пока запрос идёт, кнопка `disabled` и `aria-busy`. Повторный щелчок второй запрос не шлёт. Ошибка проверки до запроса загрузчик не включает. Ответ, и удачный и нет, кнопку отпускает.
+There is one loader, the `pending` prop on `Button`. The mark is `ButtonPending`. Do not add a second icon or a second library. While the request runs, the button is `disabled` and `aria-busy`. A second click does not send a second request. A validation error before the request does not turn the loader on. The response, success or failure, releases the button.
 
 ```tsx
 <Button type="submit" pending={pending}>

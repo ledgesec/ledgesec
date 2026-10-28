@@ -30,6 +30,8 @@ import { LABEL_DEMO, LABEL_PRICING, PATH_ABOUT, PATH_DEMO, PATH_DOCS, PATH_PRICI
 import { PAGE_AFTER, PAGE_CARD, PAGE_CTA, PAGE_H2, PAGE_H3, PAGE_HERO, PAGE_KICKER as KICKER, PAGE_LEDE as LEDE, PAGE_MAIN, PAGE_MARK, PAGE_SECTION } from "@/fsd/pages/site/space";
 import { SiteFrame } from "@/fsd/pages/site/frame";
 import { JournalFlow } from "@/fsd/pages/site/ui/journal-flow";
+import { DIAGRAM_HOME } from "@/fsd/pages/site/diagrams";
+import { SiteDiagram } from "@/fsd/pages/site/ui/site-diagram";
 import { COLUMN_METHOD, COLUMN_STATUS, COLUMN_USER_AGENT } from "@/shared/lib/columns";
 import { marketingHref } from "@/shared/lib/hosts";
 import { FIELD_COUNTRY, FIELD_PATH } from "@/widgets/table-tools/query";
@@ -96,6 +98,7 @@ export function HomePage({ host }: { host: string }) {
             </ul>
           </div>
         </section>
+        <SiteDiagram name={DIAGRAM_HOME} />
         <h2 className={`${PAGE_SECTION} ${PAGE_H2} rise`}>{PAGE_HOW}</h2>
         <ol className="mt-6 grid gap-4 md:grid-cols-3">
           {PAGE_STEPS.map((step, index) => (

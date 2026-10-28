@@ -1,10 +1,26 @@
 import Link from "next/link";
 import { DemoForm } from "@/features/demo/ui/demo-form";
-import { FUTURE_ASK, FUTURE_PATH, FUTURE_STATUS, type FuturePain } from "@/fsd/pages/future/pains";
+import { FUTURE_ASK, FUTURE_PATH, FUTURE_STATUS, type FutureIdea, type FuturePain } from "@/fsd/pages/future/pains";
 import { LABEL_DEMO } from "@/fsd/pages/site/nav";
 import { SiteFrame } from "@/fsd/pages/site/frame";
 import { PAGE_AFTER, PAGE_H2, PAGE_H3, PAGE_KICKER, PAGE_LEDE, PAGE_MAIN, PAGE_MARK, PAGE_SECTION, PAGE_TITLE } from "@/fsd/pages/site/space";
 import { PainSketch } from "@/fsd/pages/future/ui/pain-sketch";
+import { DIAGRAM_FUTURE } from "@/fsd/pages/site/diagrams";
+import { SiteDiagram } from "@/fsd/pages/site/ui/site-diagram";
+
+const IDEAS_BEFORE_PICTURE = 5;
+
+function IdeaRow({ idea, index }: { idea: FutureIdea; index: number }) {
+  return (
+    <li className="rise grid gap-x-6 gap-y-3 border border-border bg-card/70 p-6 md:grid-cols-[4rem_1fr]" style={{ animationDelay: `${index * 55}ms` }}>
+      <p className={PAGE_MARK}>{String(index + 1).padStart(2, "0")}</p>
+      <div>
+        <h2 className={PAGE_H3}>{idea.title}</h2>
+        <p className="mt-2 leading-relaxed text-muted-foreground">{idea.how}</p>
+      </div>
+    </li>
+  );
+}
 
 export function PainPage({ host, pain }: { host: string; pain: FuturePain }) {
   return (
@@ -17,14 +33,14 @@ export function PainPage({ host, pain }: { host: string; pain: FuturePain }) {
         <p className={PAGE_LEDE}>{pain.pain}</p>
         <PainSketch slug={pain.slug} />
         <ol className={`${PAGE_AFTER} grid gap-4`}>
-          {pain.ideas.map((idea, index) => (
-            <li key={idea.title} className="rise grid gap-x-6 gap-y-3 border border-border bg-card/70 p-6 md:grid-cols-[4rem_1fr]" style={{ animationDelay: `${index * 55}ms` }}>
-              <p className={PAGE_MARK}>{String(index + 1).padStart(2, "0")}</p>
-              <div>
-                <h2 className={PAGE_H3}>{idea.title}</h2>
-                <p className="mt-2 leading-relaxed text-muted-foreground">{idea.how}</p>
-              </div>
-            </li>
+          {pain.ideas.slice(0, IDEAS_BEFORE_PICTURE).map((idea, index) => (
+            <IdeaRow key={idea.title} idea={idea} index={index} />
+          ))}
+        </ol>
+        <SiteDiagram name={DIAGRAM_FUTURE} />
+        <ol className={`${PAGE_AFTER} grid gap-4`}>
+          {pain.ideas.slice(IDEAS_BEFORE_PICTURE).map((idea, index) => (
+            <IdeaRow key={idea.title} idea={idea} index={index + IDEAS_BEFORE_PICTURE} />
           ))}
         </ol>
         <section className={`${PAGE_SECTION} grid gap-8 border-t border-border pt-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.1fr)]`}>

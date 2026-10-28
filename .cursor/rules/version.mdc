@@ -1,15 +1,16 @@
 ---
-description: Версия продукта Ledgesec. Номер двигает только patch, minor ставит человек.
+description: The Ledgesec product version. Only the patch moves; a person sets the minor.
 alwaysApply: true
 ---
 
-# Версия
+# Version
 
-Номер один, в файле `VERSION` в корне. `package.json` и образ его не повторяют. Пока режим наблюдения, major остаётся 0.
+There is one number, in the `VERSION` file at the root. `package.json` and the image do not repeat it. While the mode is observation, major stays 0.
 
-- Закрытая работа поднимает только patch. Было `0.1.1`, стало `0.1.2`. В `CHANGELOG.md` абзац, что вошло. Тег `v0.1.2` стоит на коммите, который это закрывает.
-- Minor не поднимать. Его меняет человек вручную и отдельно говорит об этом. Самим minor не ставить, даже если работа большая.
-- Ломающий контракт `/v1` или границу продукта поднимает major и заводит новый префикс пути. Обычная работа `/v1` не меняет и `/v2` не открывает. Major тоже не ставить, пока человек сам этого не попросил.
-- Коммит в main сам по себе номер не двигает. Несколько коммитов одной правки дожидаются одного тега.
-- Незакрытая работа пишется под `Unreleased` и в номер не входит.
-- Агент заказчика носит тот же номер. `ledgesec-agent` вшивает `VERSION` при сборке, установленный Lua-модуль читает копию этого файла. В `Cargo.toml` номер не копировать. Пачка называет сборку полем `agent`. Кабинет показывает номер, который пришёл с хоста.
+- Closed work raises only the patch. It was `0.1.1`, it became `0.1.2`. `CHANGELOG.md` gets a paragraph of what went in. The tag `v0.1.2` sits on the commit that closes it.
+- Do not raise the minor. A person changes it by hand and says so separately. Do not set the minor yourself, even when the work is large.
+- A breaking `/v1` contract or a product boundary raises the major and starts a new path prefix. Ordinary work does not change `/v1` and does not open `/v2`. Do not set the major until a person has asked for it.
+- A commit on main does not move the number by itself. Several commits of one change wait for one tag.
+- Unclosed work is written under `Unreleased` and is not part of the number.
+- Commit messages are English.
+- The customer agent carries the same number. `ledgesec-agent` embeds `VERSION` at build time, and the installed Lua module reads a copy of that file. Do not copy the number into `Cargo.toml`. A batch names the build with the `agent` field. The cabinet shows the number that arrived with the host.
