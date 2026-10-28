@@ -1,15 +1,15 @@
-# Сайт и дашборд
+# Site and dashboard
 
-Одно приложение Next.js. Тема в `src/app/globals.css`: бумажный фон, наборный заголовок, ржавая метка зонда. Компоненты shadcn.
+One Next.js application. The theme lives in `src/app/globals.css`: a paper background, a display title, and a rust probe mark. The components are shadcn.
 
 ```bash
 npm run dev
 ```
 
-Сайт: http://127.0.0.1:44733/  
-Кабинет сайта: http://127.0.0.1:44733/dashboard  
-Кабинет админа: http://127.0.0.1:44733/admin
+Site: http://127.0.0.1:44733/  
+Site cabinet: http://127.0.0.1:44733/dashboard  
+Admin cabinet: http://127.0.0.1:44733/admin
 
-На боевых именах это `dash.ledgesec.com` и `admin.ledgesec.com`. Вход идёт в API. Админ на клиентском хосте журнал не открывает.
+On the live names those are `dash.ledgesec.com` and `admin.ledgesec.com`. Sign-in goes to the API. An admin does not open the journal on the client host.
 
-Локальный `npm run dev` проксирует `/api` на API, если задан `LEDGESEC_DEV_API`, например `http://127.0.0.1:18080`. Учётки в git не лежат: админ создаётся в Postgres.
+Local `npm run dev` proxies `/api` to the API when `LEDGESEC_DEV_API` is set, for example `http://127.0.0.1:18080`. Accounts are not in git: the admin is created in Postgres.

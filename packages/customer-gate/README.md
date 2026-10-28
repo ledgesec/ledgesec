@@ -1,53 +1,53 @@
 # Ledgesec gate
 
-Первые клиенты ставят режим наблюдения. Запрос идёт в их приложение. `log_by_lua` кладёт короткую запись в `lua_shared_dict`. Таймер воркера отправляет пачку `POST https://dash.ledgesec.com/api/v1/observations` с заголовком `X-Ledgesec-Mac`. Секрет — `LEDGESEC_INGEST_SECRET`. `LEDGESEC_SITE_ID` — хост из кабинета, не каждый сайт: сайт создаётся из заголовка Host. Тело, Cookie, query, Authorization и Referer не пишутся. Заглушки и запрета в этом режиме нет. Установка: `install.sh`. Пример: `module/nginx.conf.example`.
+The first customers install observation mode. The request reaches their application. `log_by_lua` puts a short record in `lua_shared_dict`. A worker timer posts a batch to `POST https://dash.ledgesec.com/api/v1/observations` with the header `X-Ledgesec-Mac`. The secret is `LEDGESEC_INGEST_SECRET`. `LEDGESEC_SITE_ID` is the host from the cabinet, not each site: a site is created from the Host header. The body, Cookie, query, Authorization, and Referer are not written. This mode has no challenge and no deny. Install with `install.sh`. The example is `module/nginx.conf.example`.
 
-Режим решения, когда контур может остановить запрос, остаётся в `ledgesec.gate` и на первых клиентах не включается.
+The decision mode, where the contour can stop a request, stays in `ledgesec.gate` and is not turned on for the first customers.
 
-Модуль для сайта, который остаётся на своём адресе. Посетитель приходит на сервер заказчика. Пока у браузера нет свежего пропуска, запрос в приложение не идёт: модуль отправляет браузер на контур Ledgesec. Контур решает, продолжать ли.
+The module is for a site that stays on its own address. The visitor reaches the customer's server. Until the browser has a fresh pass, the request does not reach the application: the module sends the browser to the Ledgesec contour. The contour decides whether to continue.
 
-Две A-записи DNS-края этим не заменяются. Пакет нужен там, где A сменить нельзя. Зону заказчика модуль не ведёт.
+This does not replace the two A records of the DNS edge. The package is for a place where the A record cannot be changed. The module does not run the customer's zone.
 
-## Что куда ставится
+## What goes where
 
-- `module/ledgesec/` — Lua на OpenResty заказчика, фаза `access_by_lua`. Пример: `module/nginx.conf.example`.
-- Контур — этот Rust-бинарник. Он проверяет подпись, смотрит строку запроса и либо возвращает пропуск, либо показывает подтверждение, либо отказывает.
+- `module/ledgesec/` is Lua on the customer's OpenResty, in the `access_by_lua` phase. The example is `module/nginx.conf.example`.
+- The contour is this Rust binary. It checks the signature, reads the request line, and either returns a pass, shows a confirmation, or refuses.
 
-Секрет один на сайт, он есть и у модуля, и у контура. В репозитории боевого секрета нет.
+One secret per site, held by the module and by the contour. The repository has no live secret.
 
-## Решение
+## Decision
 
-Чистый адрес контур сразу отправляет обратно с пропуском. Подозрительный адрес (список `LEDGESEC_SUSPECT_IPS`) видит страницу и в приложение не попадает, пока браузер не подтвердит. Строка с обходом пути, зондом или инъекцией получает отказ, без перехода на origin.
+A clean address is sent straight back with a pass. A suspect address (the `LEDGESEC_SUSPECT_IPS` list) sees a page and does not reach the application until the browser confirms. A line with a path bypass, a probe, or an injection is refused, without a trip to the origin.
 
-Пропуск живёт 12 часов и привязан к сайту, не к IP. Статика, `/.well-known/acme-challenge/` и чистый `OPTIONS` до контура не доходят. `POST` без пропуска на приложение не уходит: у редиректа нет тела, поэтому контур его не видит.
+A pass lasts 12 hours and is bound to the site, not to an IP. Static files, `/.well-known/acme-challenge/`, and a plain `OPTIONS` do not reach the contour. A `POST` without a pass does not go to the application: a redirect has no body, so the contour does not see it.
 
-Пока пропуска нет, а контур недоступен, новый документ до приложения не доходит. У кого пропуск уже есть, тот ходит в приложение напрямую.
+While there is no pass and the contour is down, a new document does not reach the application. A browser that already has a pass goes to the application directly.
 
-## Демо
+## Demo
 
-Один процесс изображает и модуль, и контур, чтобы поток открывался без OpenResty. Слушает только localhost. Секрет демо не для боевого сайта.
+One process plays both the module and the contour, so the flow opens without OpenResty. It listens only on localhost. The demo secret is not for a live site.
 
-Из корня монорепозитория:
+From the monorepo root:
 
 ```bash
 cargo run -p ledgesec-gate
 ```
 
-Из этого каталога достаточно `cargo run`. Открыть `http://127.0.0.1:44721/`.
+From this directory, `cargo run` is enough. Open `http://127.0.0.1:44721/`.
 
-Боевой запуск задаёт секрет и выключает демо-переключатель:
+A live run sets the secret and turns the demo switch off:
 
 ```bash
 LEDGESEC_SECRET="$(openssl rand -hex 32)" LEDGESEC_SITE_ID=example LEDGESEC_PORT=44721 cargo run
 ```
 
-`LEDGESEC_DEMO=1` оставляет кнопку «подозрительный адрес» (`203.0.113.10`). Без этого флага и с заданным секретом кнопки нет.
+`LEDGESEC_DEMO=1` keeps the suspect-address button (`203.0.113.10`). Without that flag, and with the secret set, there is no button.
 
-## Проверка
+## Check
 
 ```bash
 cargo test -p ledgesec-gate
 lua5.4 module/check.lua
 ```
 
-`cargo test` из корня гоняет то же самое и сверяет подпись Lua с контуром. `lua5.4 module/check.lua` запускать из этого каталога.
+`cargo test` from the root runs the same checks and compares the Lua signature with the contour. Run `lua5.4 module/check.lua` from this directory.

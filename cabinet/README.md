@@ -1,3 +1,3 @@
-# Кабинет
+# Cabinet
 
-Два хоста одного приложения `web`. `dash.ledgesec.com` — журнал сайта без адресов. `admin.ledgesec.com` — адреса по всем краям. Локально это `/dashboard` и `/admin`.
+Two hosts of one `web` application. `dash.ledgesec.com` is the site journal, without addresses. `admin.ledgesec.com` is addresses on every edge. Locally those are `/dashboard` and `/admin`.

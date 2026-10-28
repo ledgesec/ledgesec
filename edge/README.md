@@ -1,7 +1,7 @@
-# Край
+# Edge
 
-Caddy в контейнере `edge`. На европейской машине он один слушает 80 и 443 и сам выпускает сертификаты для `ledgesec.com`, `www`, `dash.ledgesec.com` и `admin.ledgesec.com`. Сайт и блог идут на первые два имени. `/api/` открыт на `dash` и `admin`.
+Caddy in the `edge` container. On the European machine it alone listens on 80 and 443 and issues the certificates for `ledgesec.com`, `www`, `dash.ledgesec.com`, and `admin.ledgesec.com`. The site and the blog use the first two names. `/api/` is open on `dash` and `admin`.
 
-Нью-йоркский край — отдельный `docker-compose.us.yml`. В нём нет Postgres, ClickHouse, сайта и API. Слушает 80 и 443, сертификат для `us.ledgesec.com`. Пока фильтра нет, на `/` отвечает, что это край US East.
+The New York edge is a separate `docker-compose.us.yml`. It has no Postgres, ClickHouse, site, or API. It listens on 80 and 443, with a certificate for `us.ledgesec.com`. Until there is a filter, `/` answers that this is the US East edge.
 
-На серверах не задавай `CADDY_LOCAL_CERTS`. Эта переменная только для локального запуска, где публичный порт 80 недоступен.
+Do not set `CADDY_LOCAL_CERTS` on the servers. That variable is only for a local run, where public port 80 is not available.
