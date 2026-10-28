@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
+import { headers } from "next/headers";
+import Script from "next/script";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL, SOCIAL_TITLE } from "@/fsd/pages/home/overview";
+import { measurementSnippet, measurementSrc, measuresSite } from "@/shared/lib/measure";
 import { THEME_COLOR } from "@/shared/lib/pwa";
 import { RegisterPwa } from "./register-pwa";
 import "./globals.css";
@@ -53,7 +56,8 @@ export const viewport: Viewport = {
   themeColor: THEME_COLOR,
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const host = (await headers()).get("host") ?? "";
   return (
     <html
       lang="en"
@@ -62,6 +66,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
         <RegisterPwa />
         {children}
+        {measuresSite(host) ? (
+          <>
+            <Script src={measurementSrc()} strategy="afterInteractive" />
+            <Script id="gtag" strategy="afterInteractive">
+              {measurementSnippet()}
+            </Script>
+          </>
+        ) : null}
       </body>
     </html>
   );
