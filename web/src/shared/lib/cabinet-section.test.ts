@@ -60,4 +60,9 @@ test("the public host rewrites a tab onto the cabinet route and leaves the site 
   assert.equal(cabinetRewrite("client", "/probes/markers"), "/dashboard");
   assert.equal(cabinetRewrite("admin", "/"), "/admin");
   assert.equal(cabinetRewrite("site", "/blog"), null);
+  assert.equal(cabinetRewrite("client", "/robots.txt"), null);
+  assert.equal(cabinetRewrite("client", "/llms.txt"), null);
+  assert.equal(cabinetRewrite("client", "/llms-full.txt"), null);
+  assert.equal(cabinetRewrite("admin", "/humans.txt"), null);
+  assert.equal(cabinetRewrite("admin", "/sitemap.xml"), null);
 });

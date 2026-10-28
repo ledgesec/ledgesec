@@ -15,6 +15,10 @@ One repository. The edge, the cabinet, and the API live here. The package for a 
 
 Angie and Caddy will get their own packages when a customer needs them. They are not here yet.
 
+## Demo
+
+The public form posts to `POST /v1/contact`. The API sends the note to Telegram and does not write it to Postgres. Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. Without them the route answers `unavailable`.
+
 ## Layout
 
 The visitor reaches the customer's server. The application answers as before. A collector only reads the log and posts a batch to `POST https://dash.ledgesec.com/api/v1/observations`. Europe keeps the journal. New York is a separate edge, with no databases and no cabinet.

@@ -1,0 +1,13 @@
+export const PAGE_MAIN = "mx-auto w-full max-w-6xl flex-1 px-5 pt-14 pb-20";
+export const PAGE_KICKER = "text-xs tracking-[0.14em] text-muted-foreground uppercase";
+export const PAGE_MARK = "font-mono text-xs tracking-[0.14em] text-primary uppercase";
+export const PAGE_TITLE = "mt-4 max-w-3xl font-serif text-4xl leading-tight font-medium tracking-tight md:text-6xl";
+export const PAGE_HERO = "mt-4 max-w-4xl font-serif text-5xl leading-[1.05] font-medium tracking-tight md:text-6xl";
+export const PAGE_LEDE = "mt-6 max-w-3xl text-lg leading-relaxed text-muted-foreground";
+export const PAGE_AFTER = "mt-12";
+export const PAGE_SECTION = "mt-16";
+export const PAGE_H2 = "font-serif text-3xl font-medium";
+export const PAGE_H3 = "font-serif text-2xl font-medium";
+export const PAGE_CTA = "inline-flex items-center bg-primary px-4 py-3 text-sm text-primary-foreground";
+export const PAGE_CARD = "border border-border bg-card/70 p-6";
+export const PAGE_PROSE = "max-w-3xl";

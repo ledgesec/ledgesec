@@ -13,7 +13,7 @@ export function ProbeHistory() {
           Example probe requests for {EXAMPLE_SITE}
         </caption>
         <thead>
-          <tr className="border-b border-border text-xs tracking-[0.08em] text-muted-foreground uppercase">
+          <tr className="border-b border-border text-xs tracking-[0.14em] text-muted-foreground uppercase">
             <th className="py-2 pr-4 font-medium">{COLUMN_TIME}</th>
             <th className="py-2 pr-4 font-medium">{FIELD_COUNTRY}</th>
             <th className="py-2 pr-4 font-medium">{COLUMN_USER_AGENT}</th>

@@ -19,6 +19,10 @@ ledgesec.com, www.ledgesec.com {
 	handle /edge-health {
 		respond "ok" 200
 	}
+	handle /api/v1/contact {
+		rewrite * /v1/contact
+		reverse_proxy api:8080
+	}
 	handle {
 		reverse_proxy web:8080
 	}

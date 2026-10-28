@@ -9,6 +9,7 @@ from app.codes import Code
 from app.db import migrate
 from app.errors import ApiError
 from app.http.access import router as access_router
+from app.http.contact import router as contact_router
 from app.http.health import router as health_router
 from app.http.observation import router as observation_router
 
@@ -36,6 +37,7 @@ def create_app(*, prepare: bool = True) -> FastAPI:
     app.include_router(health_router)
     app.include_router(access_router)
     app.include_router(observation_router)
+    app.include_router(contact_router)
 
     @app.exception_handler(ApiError)
     async def api_error(_request: Request, exc: ApiError) -> JSONResponse:

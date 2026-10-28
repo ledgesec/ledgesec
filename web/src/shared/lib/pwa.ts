@@ -1,4 +1,4 @@
-export const THEME_COLOR = "#f4f0e6";
+export const THEME_COLOR = "#1a1714";
 export const ICON_192 = "/icons/icon-192.png";
 export const ICON_512 = "/icons/icon-512.png";
 export const ICON_MASKABLE = "/icons/icon-maskable-512.png";

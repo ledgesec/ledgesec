@@ -59,6 +59,8 @@ services:
       LEDGESEC_INGEST_SECRET: ${LEDGESEC_INGEST_SECRET:-}
       LEDGESEC_SESSION_SECRET: ${LEDGESEC_SESSION_SECRET:-}
       LEDGESEC_GEOIP_DB: ${LEDGESEC_GEOIP_DB:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
     volumes:
       - /data/ledgesec/geoip:/data/geoip:ro
     depends_on:

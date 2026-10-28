@@ -23,3 +23,9 @@ export function siteHref(host: string) {
   if (surfaceOf(host) === "site") return "/";
   return "https://ledgesec.com";
 }
+
+export function marketingHref(host: string, path: string) {
+  const root = siteHref(host);
+  if (root === "/") return path;
+  return `${root}${path}`;
+}

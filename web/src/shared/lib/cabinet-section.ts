@@ -1,3 +1,4 @@
+import { isCrawlPath } from "./crawl-paths.ts";
 import { adminHref, dashboardHref, type Surface } from "./hosts.ts";
 import { ADMIN, CLIENT, type CabinetMode } from "./role.ts";
 
@@ -74,7 +75,7 @@ export function requestHref(
 }
 
 export function cabinetRewrite(surface: Surface, pathname: string): string | null {
-  if (surface === "site" || pathname.startsWith("/_next") || pathname.startsWith("/api")) return null;
+  if (surface === "site" || pathname.startsWith("/_next") || pathname.startsWith("/api") || isCrawlPath(pathname)) return null;
   const mode = surface === ADMIN ? ADMIN : CLIENT;
   const root = cabinetRoot(mode);
   if (pathname === root || pathname.startsWith(`${root}/`)) return null;

@@ -1,32 +1,31 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
-import { dashboardHref, siteHref } from "@/shared/lib/hosts";
+import { LABEL_DEMO, LABEL_SIGN_IN, NAV, PATH_DEMO } from "@/fsd/pages/site/nav";
+import { PAGE_CTA } from "@/fsd/pages/site/space";
+import { dashboardHref, marketingHref, siteHref } from "@/shared/lib/hosts";
 
-export function SiteHeader({
-  host,
-  trailing,
-}: {
-  host: string;
-  trailing?: ReactNode;
-}) {
+export function SiteHeader({ host }: { host: string }) {
   return (
-    <header className="mx-auto flex w-full max-w-5xl items-baseline justify-between gap-4 px-5 pt-6">
-      <Link href={siteHref(host)} className="text-xs tracking-[0.08em] text-muted-foreground uppercase">
-        Ledgesec
-      </Link>
-      <nav className="flex items-baseline gap-4 text-sm">
-        <Link href={host.startsWith("dash.") ? "https://ledgesec.com/docs" : "/docs"} className="border-b border-border">
-          Docs
+    <header className="border-b border-border">
+      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-4">
+        <Link href={siteHref(host)} className="font-serif text-xl tracking-tight">
+          Ledgesec
         </Link>
-        <Link href={host.startsWith("dash.") ? "https://ledgesec.com/blog" : "/blog"} className="border-b border-border">
-          Blog
-        </Link>
-        {trailing ?? (
-          <Link href={dashboardHref(host)} className="border-b border-border">
-            Sign in
+        <nav className="order-3 flex w-full flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground md:order-none md:w-auto">
+          {NAV.map((item) => (
+            <Link key={item.href} href={marketingHref(host, item.href)} className="hover:text-foreground">
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="flex items-center gap-4 text-sm">
+          <Link href={dashboardHref(host)} className="text-muted-foreground hover:text-foreground">
+            {LABEL_SIGN_IN}
           </Link>
-        )}
-      </nav>
+          <Link href={marketingHref(host, PATH_DEMO)} className={PAGE_CTA}>
+            {LABEL_DEMO}
+          </Link>
+        </div>
+      </div>
     </header>
   );
 }

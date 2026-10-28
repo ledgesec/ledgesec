@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { adminHref, dashboardHref, siteHref, surfaceOf } from "./hosts.ts";
+import { adminHref, dashboardHref, marketingHref, siteHref, surfaceOf } from "./hosts.ts";
 
 test("dash is the site cabinet and admin.ledgesec.com is the admin cabinet", () => {
   assert.equal(surfaceOf("dash.ledgesec.com"), "client");
@@ -14,4 +14,6 @@ test("dash is the site cabinet and admin.ledgesec.com is the admin cabinet", () 
   assert.equal(dashboardHref("localhost:44733"), "/dashboard");
   assert.equal(siteHref("admin.ledgesec.com"), "https://ledgesec.com");
   assert.equal(siteHref("ledgesec.com"), "/");
+  assert.equal(marketingHref("ledgesec.com", "/demo"), "/demo");
+  assert.equal(marketingHref("dash.ledgesec.com", "/demo"), "https://ledgesec.com/demo");
 });

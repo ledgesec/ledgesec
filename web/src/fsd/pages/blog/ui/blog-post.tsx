@@ -1,23 +1,28 @@
 import Link from "next/link";
+import { BLOG_BACK } from "@/fsd/pages/blog/copy";
 import type { Post } from "@/fsd/pages/blog/posts";
-import { SiteHeader } from "@/widgets/site-header/ui/site-header";
+import { SiteFrame } from "@/fsd/pages/site/frame";
+import { PAGE_KICKER, PAGE_MAIN, PAGE_PROSE, PAGE_SECTION, PAGE_TITLE } from "@/fsd/pages/site/space";
 
 export function BlogPost({ host, post }: { host: string; post: Post }) {
   return (
-    <>
-      <SiteHeader host={host} />
-      <main className="mx-auto w-full max-w-xl flex-1 px-5 pt-16 pb-20">
-        <p className="text-xs tracking-[0.08em] text-muted-foreground uppercase">{post.date}</p>
-        <h1 className="mt-4 font-serif text-4xl font-medium tracking-tight">{post.title}</h1>
-        <div className="mt-6 space-y-4 text-lg leading-relaxed">
-          {post.body.map((paragraph) => (
-            <p key={paragraph}>{paragraph}</p>
-          ))}
+    <SiteFrame host={host}>
+      <main className={PAGE_MAIN}>
+        <div className={PAGE_PROSE}>
+          <p className={PAGE_KICKER}>{post.date}</p>
+          <h1 className={PAGE_TITLE}>{post.title}</h1>
+          <div className="mt-6 space-y-6 text-lg leading-relaxed">
+            {post.body.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+          </div>
+          <p className={PAGE_SECTION}>
+            <Link href="/blog" className="border-b border-border">
+              {BLOG_BACK}
+            </Link>
+          </p>
         </div>
-        <p className="mt-10">
-          <Link href="/blog" className="border-b border-border">Back to the blog</Link>
-        </p>
       </main>
-    </>
+    </SiteFrame>
   );
 }
