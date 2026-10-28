@@ -1,6 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL, SOCIAL_TITLE } from "@/fsd/pages/home/overview";
+import { THEME_COLOR } from "@/shared/lib/pwa";
+import { RegisterPwa } from "./register-pwa";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -38,6 +40,17 @@ export const metadata: Metadata = {
     title: SOCIAL_TITLE,
     description: SITE_DESCRIPTION,
   },
+  appleWebApp: {
+    capable: true,
+    title: SITE_NAME,
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: THEME_COLOR,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -46,7 +59,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${newsreader.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col bg-background font-sans text-foreground">{children}</body>
+      <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
+        <RegisterPwa />
+        {children}
+      </body>
     </html>
   );
 }
