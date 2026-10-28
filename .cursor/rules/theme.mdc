@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Cabinet theme
 
-The shell of both cabinets is the purchased Threatrix template. The archive is in the repository: `theme/threatrix.zip`. The sources inside are `Threatrix/Main_File`. Take the sidebar, header, cards, charts, and tables from there (`src/components/layout`, `src/components/ui`, `src/index.css`, `tailwind.config.js`) and move them into this Next.js application.
+The shell of both cabinets is the purchased Threatrix template. The sidebar, header, cards, charts, and tables are already in this Next.js application. Do not put the archive back in the repository.
 
 - Do not start a second application. Do not run the Vite template or `Ready_To_Deploy`. Do not put the archive in the cabinet image.
 - Do not draw a separate dark shell beside Threatrix. A new cabinet screen repeats the Threatrix grid, spacing, glass, and color.
