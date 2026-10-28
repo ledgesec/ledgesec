@@ -9,23 +9,25 @@ export type Post = {
 export const posts: Post[] = [
   {
     slug: "observe-first",
-    title: "The first install only watches.",
-    date: "21 Oct 2026",
-    dek: "The request reaches the customer's application. Ledgesec keeps a line.",
+    title: "The collector leaves the request alone.",
+    date: "28 Oct 2026",
+    dek: "Nginx, the Linux daemon, and Coolify all post a line after the application has answered.",
     body: [
-      "The module is for a site that stays on its own address. A visitor reaches the customer's OpenResty. The request goes on to the application. After the response, the module sends a short batch to Ledgesec.",
-      "The line has a time, a site, a path, and an edge. It does not have the query string, the body, or the cookie. Challenge and deny stay in the package and stay off.",
-      "Europe holds the journal. New York answers as an edge. It does not keep a second database. When a site is ready to be stopped, that is a later switch, not the first one.",
+      "A host is one web server. Every request on it can land in the journal, including a path the server does not serve. That is how a scan shows up.",
+      "Nginx reports through an OpenResty module that runs after the response. The Linux daemon follows the nginx access log and does not rebuild nginx. Coolify follows the proxy log, including a name that never reached an application. None of them stand in front of the visitor.",
+      "A line may include the time, method, path, status, response size, protocol, TLS, and User-Agent. The query string, the body, the cookie, and the Referer stay on the server. Country is filled from a local database when the batch arrives.",
+      "Europe stores the rows. A row lasts three years, then it is dropped. Turning a host off stops new lines. It does not delete the old ones.",
     ],
   },
   {
     slug: "probe-paths",
     title: "A request for /.env is a marker.",
-    date: "21 Oct 2026",
-    dek: "Scanners ask for files a site should never serve. The dashboard marks those paths.",
+    date: "28 Oct 2026",
+    dek: "Scanners ask for files a site should never serve. The cabinet marks those paths when it reads the journal.",
     body: [
-      "Scanners ask for files a public site should not serve. /.env and /.htaccess are the common ones. The same pass looks for a git checkout, a WordPress login, or a dumped .sql file.",
-      "On the first install Ledgesec does not block that request. The dashboard marks the path in rust, the same color on the public site and in the journal. An admin then sees the address across every edge that recorded it. A user for one site sees the marked paths for that site, without the address list.",
+      "Scanners ask for files a public site should not serve. /.env and /.htaccess are the common ones. The same pass looks for a git checkout, a WordPress login, or a dumped .sql file. A secret file inside a directory is marked too.",
+      "The mark is applied when the cabinet reads the journal. An admin can add a pattern. The application has already answered the request.",
+      "Open the path and the history lists the country and the User-Agent for each request. An admin also sees the address. A user of one site does not.",
     ],
   },
 ];

@@ -15,6 +15,9 @@ export function SiteHeader({
         Ledgesec
       </Link>
       <nav className="flex items-baseline gap-4 text-sm">
+        <Link href={host.startsWith("dash.") ? "https://ledgesec.com/docs" : "/docs"} className="border-b border-border">
+          Docs
+        </Link>
         <Link href={host.startsWith("dash.") ? "https://ledgesec.com/blog" : "/blog"} className="border-b border-border">
           Blog
         </Link>

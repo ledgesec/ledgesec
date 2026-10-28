@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL, SOCIAL_TITLE } from "@/fsd/pages/home/overview";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,8 +19,25 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Ledgesec",
-  description: "Watch requests at the DNS edge before you stop them.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_NAME,
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: SOCIAL_TITLE,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SOCIAL_TITLE,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

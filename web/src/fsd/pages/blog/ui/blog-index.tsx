@@ -8,7 +8,7 @@ export function BlogIndex({ host }: { host: string }) {
       <SiteHeader host={host} />
       <main className="mx-auto w-full max-w-xl flex-1 px-5 pt-16 pb-20">
         <p className="text-xs tracking-[0.08em] text-muted-foreground uppercase">Blog</p>
-        <h1 className="mt-4 font-serif text-4xl font-medium tracking-tight">Notes from the edge.</h1>
+        <h1 className="mt-4 font-serif text-4xl font-medium tracking-tight">Notes on the journal.</h1>
         <div className="mt-10 divide-y divide-border border-y border-border">
           {posts.map((post) => (
             <article key={post.slug} className="py-6">
