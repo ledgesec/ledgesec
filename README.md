@@ -1,42 +1,42 @@
 # Ledgesec
 
-Журнал запросов веб-сервера. Демон читает access-лог nginx или прокси Coolify и запрос не меняет. Кабинет показывает путь, код ответа, время и зонд. Адрес посетителя видит администратор. Пользователь сайта видит запросы своих хостов без адресов.
+A journal of web server requests. The daemon reads the nginx access log or the Coolify proxy log and does not change the request. The cabinet shows the path, the status, the time, and the probe. An admin sees the visitor address. A site user sees the requests for their hosts, without addresses.
 
-Это не WAF. Запрос идёт в приложение как раньше. Лицензия — MIT.
+This is not a WAF. The request still reaches the application. The license is MIT.
 
-Монорепозиторий. Край, кабинет и API живут здесь. Пакет на сервер заказчика тоже здесь, отдельным каталогом. Номер продукта — файл `VERSION`: закрытая работа поднимает patch и получает тег. Minor и major ставит человек вручную.
+One repository. The edge, the cabinet, and the API live here. The package for a customer's server is here too, in its own directory. The product number is the `VERSION` file: closed work raises the patch and gets a tag. A person sets minor and major by hand.
 
-| Каталог | Что это |
+| Directory | What it is |
 | --- | --- |
-| `edge/` | Caddy нашего края. Первая поставка: два сервера, порт 443 только здесь. |
-| `api/` | Учёт сайтов, сертификаты, снимок, чтение журнала. На путь посетителя не встаёт. |
-| `web/` | Сайт, блог и два кабинета. Сайт бумажный, кабинеты — оболочка Threatrix. |
-| `packages/customer-gate/` | Lua на OpenResty заказчика. Без пропуска отправляет браузер на край. Для тех, кто не меняет A. В кабинет v1 не входит. |
+| `edge/` | Our edge, Caddy. First delivery: two servers, and port 443 only here. |
+| `api/` | Sites, certificates, the snapshot, and reading the journal. It does not stand on the visitor's path. |
+| `web/` | The site, the blog, and both cabinets. The site is paper. The cabinets use the Threatrix shell. |
+| `packages/customer-gate/` | Lua on the customer's OpenResty. Without a pass it sends the browser to the edge. For a site that does not change its A record. It is not part of cabinet v1. |
 
-Angie и Caddy появятся своими пакетами, когда до них дойдёт заказчик. Пока их нет.
+Angie and Caddy will get their own packages when a customer needs them. They are not here yet.
 
-## Схема
+## Layout
 
-Посетитель приходит на сервер заказчика. Приложение отвечает как раньше. Сборщик только читает журнал и шлёт пачку `POST https://dash.ledgesec.com/api/v1/observations`. Европа хранит журнал. Нью-Йорк — отдельный край, баз и кабинета там нет.
+The visitor reaches the customer's server. The application answers as before. A collector only reads the log and posts a batch to `POST https://dash.ledgesec.com/api/v1/observations`. Europe keeps the journal. New York is a separate edge, with no databases and no cabinet.
 
 ```mermaid
 flowchart TB
-  visitor[Посетитель] --> origin["shop.example: приложение отвечает"]
-  origin --> openresty["OpenResty: log_by_lua после ответа"]
-  origin --> daemon["Демон Linux: хвост access-лога nginx"]
-  origin --> coolify["Coolify: хвост журнала прокси"]
+  visitor[Visitor] --> origin["shop.example: the application answers"]
+  origin --> openresty["OpenResty: log_by_lua after the response"]
+  origin --> daemon["Linux daemon: tail of the nginx access log"]
+  origin --> coolify["Coolify: tail of the proxy log"]
   openresty --> ingest["POST /api/v1/observations"]
   daemon --> ingest
   coolify --> ingest
-  ingest --> europe["Европа: Caddy, сайт, кабинеты, API, Postgres, ClickHouse"]
-  ny["Нью-Йорк: только Caddy для us.ledgesec.com"]
+  ingest --> europe["Europe: Caddy, site, cabinets, API, Postgres, ClickHouse"]
+  ny["New York: Caddy only, for us.ledgesec.com"]
 ```
 
-Нью-Йорк на путь запроса заказчика не встаёт и журнал не хранит.
+New York does not stand on the customer's request path and does not store the journal.
 
-## Подключения
+## Connections
 
-Секрет приёма и идентификатор хоста кабинет показывает у хоста. В примерах ниже стоят заглушки. Файл один: `/etc/ledgesec/agent.env`.
+The cabinet shows the ingest secret and the host id on the host. The examples below use placeholders. One file: `/etc/ledgesec/agent.env`.
 
 ```
 LEDGESEC_SITE_ID=host-from-the-cabinet
@@ -46,7 +46,7 @@ LEDGESEC_INGEST_URL=https://dash.ledgesec.com/api/v1/observations
 
 ### OpenResty
 
-`log_by_lua` пишет строку после ответа. Запрос не меняется. Обычный nginx этот файл не загрузит: там демон Linux.
+`log_by_lua` writes the line after the response. The request is not changed. Plain nginx cannot load this file. That server uses the Linux daemon.
 
 ```nginx
 env LEDGESEC_INGEST_SECRET;
@@ -74,9 +74,9 @@ http {
 }
 ```
 
-### Демон Linux
+### Linux daemon
 
-Nginx остаётся своим. Формат стоит в блоке `http`, чтобы попал каждый сервер этой машины. Если у `server` уже есть свой `access_log`, строку `ledgesec` повторяют там. `ledgesec-agent` читает файл и шлёт ту же пачку.
+Nginx stays as it is. The format belongs in the `http` block, so every server on that machine is included. A `server` block that already has its own `access_log` repeats the `ledgesec` line. `ledgesec-agent` reads the file and posts the same batch.
 
 ```nginx
 log_format ledgesec '$msec $remote_addr $host "$request" $status $request_time';
@@ -85,30 +85,30 @@ access_log /var/log/nginx/ledgesec.log ledgesec;
 
 ### Coolify
 
-Тот же демон на сервере Coolify читает весь журнал прокси, в том числе имя, которое ни в одно приложение не ушло. В тот же env-файл:
+The same daemon on the Coolify server reads the whole proxy log, including a name that never reached an application. Add these lines to the same env file:
 
 ```
 LEDGESEC_LOG=/data/coolify/proxy/access.log
 LEDGESEC_EDGE_ID=eu
 ```
 
-DNS и Apache в выборе кабинета есть и пока недоступны.
+DNS and Apache are listed in the cabinet and cannot be added yet.
 
-## Платформа
+## Platform
 
-Европейская машина поднимает один `docker-compose.yml`: Postgres, ClickHouse, API, сайт и край. Схема баз зашита в их образы, отдельный bind-mount для SQL не нужен. Coolify в России выкладывает этот файл по SSH. Нью-йоркская машина в этот файл не входит.
+The European machine runs one `docker-compose.yml`: Postgres, ClickHouse, the API, the site, and the edge. The database schema is built into those images. A separate bind-mount for SQL is not needed. Coolify in Russia deploys this file over SSH. The New York machine is not in this file.
 
-В Coolify:
+In Coolify:
 
-1. Ресурс из Git, build pack Docker Compose, файл `docker-compose.yml` в корне.
-2. Advanced → Docker compose → Compose deployment: Raw (deploy file as-is). Иначе панель допишет свой прокси.
-3. На европейском сервере прокси: Custom (None). Домен у ресурса не задавать. 80 и 443 публикует только сервис `edge`, это Caddy, не прокси панели.
-4. В переменных задать `POSTGRES_PASSWORD`, `CLICKHOUSE_PASSWORD` и `LEDGESEC_SESSION_SECRET`. Админа в переменные не класть: его строка в Postgres. `EDGE_HTTP_PORT` и `EDGE_HTTPS_PORT` на сервере не задавать: край займёт 80 и 443.
-5. Записи DNS `dash` и `admin` — A на европейский адрес, тот же, что у `ledgesec.com`. Пока их нет, сертификаты кабинетов не выпустятся. Домен в Coolify не добавлять.
+1. A Git resource, build pack Docker Compose, file `docker-compose.yml` at the root.
+2. Advanced → Docker compose → Compose deployment: Raw (deploy file as-is). Otherwise the panel adds its own proxy.
+3. On the European server the proxy is Custom (None). Do not set a domain on the resource. Only the `edge` service publishes 80 and 443. That is Caddy, not the panel proxy.
+4. Set `POSTGRES_PASSWORD`, `CLICKHOUSE_PASSWORD`, and `LEDGESEC_SESSION_SECRET`. Do not put the admin in the variables: that row lives in Postgres. Do not set `EDGE_HTTP_PORT` or `EDGE_HTTPS_PORT` on the server: the edge takes 80 and 443.
+5. DNS `dash` and `admin` are A records to the European address, the same one as `ledgesec.com`. Until they exist, the cabinet certificates will not be issued. Do not add the domain in Coolify.
 
-Postgres и ClickHouse в хостовые порты не выведены. Локально скопируй `.env.example` в `.env`.
+Postgres and ClickHouse are not published on host ports. Locally, copy `.env.example` to `.env`.
 
-Нью-йоркская машина поднимает только `docker-compose.us.yml`, отдельным ресурсом. Базы, сайт и дашборд туда не входят. На этой машине:
+The New York machine runs only `docker-compose.us.yml`, as its own resource. The databases, the site, and the dashboard are not included. On that machine:
 
 ```bash
 docker compose -p ledgesec-us -f docker-compose.us.yml up --build -d
@@ -118,13 +118,13 @@ docker compose -p ledgesec-us -f docker-compose.us.yml up --build -d
 docker compose up --build
 ```
 
-Проверка пакета заказчика:
+Check the customer package:
 
 ```bash
 cargo test
 ```
 
-Демо пакета заказчика, с корня:
+Demo of the customer package, from the root:
 
 ```bash
 cargo run -p ledgesec-gate
