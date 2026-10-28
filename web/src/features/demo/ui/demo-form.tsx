@@ -25,13 +25,14 @@ export function DemoForm({ interest = "", interestLabel = "" }: { interest?: str
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const parsed = demoSchema.safeParse({
-      name: form.get(FIELD_NAME),
-      channel: form.get(FIELD_CHANNEL),
-      reach: form.get(FIELD_REACH),
-      host: form.get(FIELD_HOST),
-      message: form.get(FIELD_MESSAGE),
+      name: data.get(FIELD_NAME),
+      channel: data.get(FIELD_CHANNEL),
+      reach: data.get(FIELD_REACH),
+      host: data.get(FIELD_HOST),
+      message: data.get(FIELD_MESSAGE),
       interest,
     });
     if (!parsed.success) {
@@ -55,7 +56,7 @@ export function DemoForm({ interest = "", interestLabel = "" }: { interest?: str
       }
       setSent(true);
       setChannel(CHANNEL_EMAIL);
-      event.currentTarget.reset();
+      form.reset();
     } catch {
       setError(DEMO_ERROR);
     } finally {

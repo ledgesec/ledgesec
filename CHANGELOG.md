@@ -7,6 +7,10 @@ The product number lives in `VERSION`. Closed work raises the patch. A person se
 - The movement detector decides separately by address and by fingerprint. A red mark blocks its own subject at once, and the rest accumulate a score up to a threshold. Accepting a batch does not apply that decision.
 - The mouse and scroll trail is two percent. A straight path and even steps set fingerprint marks. The points are not written to the journal.
 
+## 0.1.21
+
+- A demo note that reached Telegram shows as sent. Clearing the form does not report that the note failed.
+
 ## 0.1.20
 
 - The public site loads Google Analytics. The cabinets do not.
